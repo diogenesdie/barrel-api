@@ -88,20 +88,25 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 	row = sr.db.QueryRow(`
 		select s.id
 		      ,s.user_id
+			  ,u.username
+			  ,u.name
+			  ,u.email
 			  ,s.token
 			  ,s.created_at
 			  ,s.updated_at
 			  ,s.status
 			  ,s.expires_at
 		  from barrel.sessions s
-		 where s.user_id = $1::bigint
+		      ,barrel.users u
+		 where u.id = s.user_id
+		   and s.user_id = $1::bigint
 		   and s.status = 'A'
 		   and s.expires_at > current_timestamp
 	`, userID)
 
 	session := &model.Session{}
 
-	err = row.Scan(&session.ID, &session.UserID, &session.Token, &session.CreatedAt, &session.UpdatedAt, &session.Status, &session.ExpiresAt)
+	err = row.Scan(&session.ID, &session.UserID, &session.Username, &session.Name, &session.Email, &session.Token, &session.CreatedAt, &session.UpdatedAt, &session.Status, &session.ExpiresAt)
 
 	if err == sql.ErrNoRows {
 		token, err := auth.GenerateToken(userID)

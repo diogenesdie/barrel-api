@@ -7,6 +7,9 @@ import (
 type Session struct {
 	ID        uint64    `json:"id"`
 	UserID    uint64    `json:"user_id"`
+	Username  string    `json:"username"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
 	Token     string    `json:"token"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
