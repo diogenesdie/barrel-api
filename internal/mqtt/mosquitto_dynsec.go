@@ -89,8 +89,8 @@ func (p *MosquittoDynSecProvisioner) AddRoleACL(ctx context.Context, role string
 		"rolename": role,
 		"acltype":  aclType,
 		"topic":    topic,
-		"allow":    true, // Usar boolean true, não string
-		"priority": 0,    // Adicionar prioridade explicitamente
+		"allow":    true,
+		"priority": 0,
 	}
 	return p.pub(cmd)
 }

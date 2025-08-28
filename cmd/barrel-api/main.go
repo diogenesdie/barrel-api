@@ -41,7 +41,7 @@ func NewApp(cfg *config.Config) *App {
 	v1.Use(auth.AuthecationMiddleware)
 
 	userRepo := repository.NewUserRepository(core.GetDB())
-	prov := mqtt.NewMosqDynSec("tcp://dioge.com.br:1883", "admin", "barrelmqtt2#")
+	prov := mqtt.NewMosqDynSec("tcp://dioge.com.br:1883", "admin", cfg.MQTTPassword)
 	userController := controller.NewUserController(userRepo, prov)
 	userHandler := handler.NewUserHandler(userController)
 	userHandler.RegisterRoutes(authRouter)
