@@ -119,6 +119,20 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 		session.Status = "A"
 		session.ExpiresAt = time.Now().Add(time.Hour * 24)
 
+		row = sr.db.QueryRow(`
+			select u.username
+				,u.name
+				,u.email
+			from barrel.users u
+			where u.id = $1::bigint
+		`, session.UserID)
+
+		err = row.Scan(&session.Username, &session.Name, &session.Email)
+
+		if err != nil {
+			return nil, err
+		}
+
 		_, err = sr.db.Exec(`
 			insert into barrel.sessions(id
 									   ,user_id
@@ -141,7 +155,6 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 		}
 
 		return session, nil
-
 	}
 
 	row = sr.db.QueryRow(`
