@@ -88,9 +88,6 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 	row = sr.db.QueryRow(`
 		select s.id
 		      ,s.user_id
-			  ,u.username
-			  ,u.name
-			  ,u.email
 			  ,s.token
 			  ,s.created_at
 			  ,s.updated_at
@@ -106,7 +103,7 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 
 	session := &model.Session{}
 
-	err = row.Scan(&session.ID, &session.UserID, &session.Username, &session.Name, &session.Email, &session.Token, &session.CreatedAt, &session.UpdatedAt, &session.Status, &session.ExpiresAt)
+	err = row.Scan(&session.ID, &session.UserID, &session.Token, &session.CreatedAt, &session.UpdatedAt, &session.Status, &session.ExpiresAt)
 
 	if err == sql.ErrNoRows {
 		token, err := auth.GenerateToken(userID)
@@ -146,6 +143,16 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 		return session, nil
 
 	}
+
+	row = sr.db.QueryRow(`
+		select u.username
+		      ,u.name
+		      ,u.email
+		  from barrel.users u
+		 where u.id = $1::bigint
+	`, session.UserID)
+
+	err = row.Scan(&session.Username, &session.Name, &session.Email)
 
 	if err != nil {
 		return nil, err
