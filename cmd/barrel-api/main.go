@@ -20,20 +20,13 @@ type App struct {
 	Router *mux.Router
 }
 
-func jsonMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		next.ServeHTTP(w, r)
-	})
-}
-
 func NewApp(cfg *config.Config) *App {
 	core.InitializeDatabase("user=" + cfg.Database.User + " password=" + cfg.Database.Password + " dbname=" + cfg.Database.Name + " sslmode=disable")
 
 	app := &App{
 		Router: mux.NewRouter(),
 	}
-	app.Router.Use(jsonMiddleware)
+	app.Router.Use(auth.JSONMiddleware)
 
 	authRouter := app.Router.PathPrefix("/auth/v1").Subrouter()
 	v1 := app.Router.PathPrefix("/api/v1").Subrouter()
