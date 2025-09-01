@@ -56,11 +56,6 @@ func NewApp(cfg *config.Config) *App {
 	workoutHandler := handler.NewWorkoutHandler(workoutController)
 	workoutHandler.RegisterRoutes(v1)
 
-	exerciseRepo := repository.NewExerciseRepository(core.GetDB())
-	exerciseController := controller.NewExerciseController(exerciseRepo)
-	exerciseHandler := handler.NewExerciseHandler(exerciseController)
-	exerciseHandler.RegisterRoutes(v1)
-
 	return app
 }
 

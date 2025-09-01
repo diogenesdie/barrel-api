@@ -4,7 +4,6 @@ import (
 	"barrel-api/model"
 	"barrel-api/repository"
 	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
@@ -28,11 +27,39 @@ func (sc *SessionController) Login(w http.ResponseWriter, r *http.Request) {
 
 	session, err := sc.sessionRepo.Login(&login)
 
-	if err != nil {
-		fmt.Print(err)
-		http.Error(w, "Failed to login", http.StatusInternalServerError)
-		return
+	response := model.Response{
+		Message: "OK",
+		Data:    session,
+		Code:    0,
+		Status:  http.StatusOK,
 	}
 
-	json.NewEncoder(w).Encode(session)
+	if err != nil {
+		switch err {
+		case repository.ErrSessionNotFound:
+			response.Status = http.StatusNotFound
+		case repository.ErrSessionExpired:
+			response.Status = http.StatusUnauthorized
+		case repository.ErrSessionInactive:
+			response.Status = http.StatusUnauthorized
+		case repository.ErrInvalidPassword:
+			response.Status = http.StatusUnauthorized
+		case repository.ErrUserNotFound:
+			response.Status = http.StatusNotFound
+		case repository.ErrUnauthorized:
+			response.Status = http.StatusUnauthorized
+		case repository.ErrGenerateToken:
+			response.Status = http.StatusInternalServerError
+		case repository.ErrUpdateToken:
+			response.Status = http.StatusInternalServerError
+		default:
+			response.Status = http.StatusInternalServerError
+		}
+
+		response.Message = err.Error()
+		response.Data = nil
+	}
+
+	w.WriteHeader(response.Status)
+	json.NewEncoder(w).Encode(response)
 }

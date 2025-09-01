@@ -16,6 +16,9 @@ var ErrSessionNotFound = errors.New("session not found")
 var ErrSessionExpired = errors.New("session expired")
 var ErrSessionInactive = errors.New("session manually inactivated")
 var ErrInvalidPassword = errors.New("invalid password")
+var ErrUnauthorized = errors.New("unauthorized")
+var ErrGenerateToken = errors.New("failed to generate token")
+var ErrUpdateToken = errors.New("failed to update token")
 
 func NewSessionRepository(db *sql.DB) *SessionRepository {
 	return &SessionRepository{db}
