@@ -23,13 +23,15 @@ func (ur *UserRepository) CreateUser(user *model.User) error {
 								,username
 							    ,name
 							    ,email
-							    ,password)
+							    ,password
+								,plan_id)
 						values (nextval('barrel.seq_users')
 						       ,$1
 							   ,$2
 							   ,$3
 							   ,$4
-							   ,$5)
+							   ,$5
+							   ,1)
 	`, user.Type, user.Username, user.Name, user.Email, user.Password)
 
 	return err
