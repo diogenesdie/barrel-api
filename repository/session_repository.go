@@ -110,7 +110,6 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 
 	if err == sql.ErrNoRows {
 		token, err := auth.GenerateToken(userID)
-
 		if err != nil {
 			return nil, err
 		}
@@ -122,18 +121,24 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 		session.Status = "A"
 		session.ExpiresAt = time.Now().Add(time.Hour * 24)
 
+		// pega dados do usuário + plano
 		row = sr.db.QueryRow(`
 			select u.username
-				,u.name
-				,u.email
+			      ,u.name
+			      ,u.email
+			      ,u.plan_id
 			from barrel.users u
 			where u.id = $1::bigint
 		`, session.UserID)
 
-		err = row.Scan(&session.Username, &session.Name, &session.Email)
-
+		var planID sql.NullInt64
+		err = row.Scan(&session.Username, &session.Name, &session.Email, &planID)
 		if err != nil {
 			return nil, err
+		}
+
+		if planID.Valid {
+			session.SubscriptionPlan, _ = sr.getSubscriptionPlan(planID.Int64)
 		}
 
 		_, err = sr.db.Exec(`
@@ -160,19 +165,84 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 		return session, nil
 	}
 
+	// se já tinha sessão válida, pega dados do usuário + plano
 	row = sr.db.QueryRow(`
 		select u.username
 		      ,u.name
 		      ,u.email
+		      ,u.plan_id
 		  from barrel.users u
 		 where u.id = $1::bigint
 	`, session.UserID)
 
-	err = row.Scan(&session.Username, &session.Name, &session.Email)
+	var planID sql.NullInt64
+	err = row.Scan(&session.Username, &session.Name, &session.Email, &planID)
+	if err != nil {
+		return nil, err
+	}
+
+	if planID.Valid {
+		session.SubscriptionPlan, _ = sr.getSubscriptionPlan(planID.Int64)
+	}
+
+	return session, nil
+}
+
+// helper para carregar subscription plan
+func (sr *SessionRepository) getSubscriptionPlan(planID int64) (*model.SubscriptionPlan, error) {
+	row := sr.db.QueryRow(`
+		select id
+		      ,name
+		      ,price
+		      ,currency
+		      ,max_devices
+		      ,local_communication
+		      ,mqtt_included
+		      ,technical_support
+		      ,priority_support
+		      ,custom_widgets
+		      ,custom_integrations
+		      ,is_popular
+		      ,is_custom_price
+		      ,created_at
+		      ,updated_at
+		  from barrel.subscription_plans
+		 where id = $1::bigint
+	`, planID)
+
+	plan := &model.SubscriptionPlan{}
+	var price sql.NullFloat64
+	var maxDevices sql.NullInt64
+
+	err := row.Scan(
+		&plan.ID,
+		&plan.Name,
+		&price,
+		&plan.Currency,
+		&maxDevices,
+		&plan.LocalCommunication,
+		&plan.MQTTIncluded,
+		&plan.TechnicalSupport,
+		&plan.PrioritySupport,
+		&plan.CustomWidgets,
+		&plan.CustomIntegrations,
+		&plan.IsPopular,
+		&plan.IsCustomPrice,
+		&plan.CreatedAt,
+		&plan.UpdatedAt,
+	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return session, nil
+	if price.Valid {
+		plan.Price = &price.Float64
+	}
+	if maxDevices.Valid {
+		val := int(maxDevices.Int64)
+		plan.MaxDevices = &val
+	}
+
+	return plan, nil
 }
