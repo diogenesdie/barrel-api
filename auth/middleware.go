@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"barrel-api/model"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,13 +13,13 @@ func AuthecationMiddleware(next http.Handler) http.Handler {
 		token := r.Header.Get("Authorization")
 
 		if token == "" {
-			http.Error(w, "Missing authentication token", http.StatusBadRequest)
+			writeError(w, "Missing authentication token", http.StatusBadRequest, 1001)
 			return
 		}
 
 		tokenParts := strings.Split(token, " ")
 		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			http.Error(w, "Invalid authentication token", http.StatusBadRequest)
+			writeError(w, "Invalid authentication token format", http.StatusBadRequest, 1002)
 			return
 		}
 
@@ -25,7 +27,7 @@ func AuthecationMiddleware(next http.Handler) http.Handler {
 
 		claims, err := VerifyToken(token)
 		if err != nil {
-			http.Error(w, "Invalid authentication token", http.StatusUnauthorized)
+			writeError(w, "Invalid or expired authentication token", http.StatusUnauthorized, 1003)
 			return
 		}
 
@@ -41,4 +43,15 @@ func JSONMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		next.ServeHTTP(w, r)
 	})
+}
+
+func writeError(w http.ResponseWriter, message string, status, code int) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	resp := model.Response{
+		Message: message,
+		Code:    code,
+		Status:  status,
+	}
+	_ = json.NewEncoder(w).Encode(resp)
 }

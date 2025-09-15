@@ -43,4 +43,5 @@ create trigger trg_users_biu
   execute function fnc_trg_users_biu();
 
 insert into barrel.users (type, username, name, email, password, plan_id)
-values ('A', 'teste', 'Usuário Teste', 'teste@teste.com', '1234', 1);
+values ('A', 'teste', 'Usuário Teste', 'teste@teste.com', '1234', 1), 
+       ('N', 'nutri', 'Nutricionista Teste', 'nutri@teste.com', '1234', 2);

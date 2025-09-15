@@ -16,25 +16,30 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db}
 }
 
-func (ur *UserRepository) CreateUser(user *model.User) error {
-	_, err := ur.db.Exec(`
-		insert into barrel.users(id
-			                    ,type
-								,username
-							    ,name
-							    ,email
-							    ,password
-								,plan_id)
-						values (nextval('barrel.seq_users')
-						       ,$1
-							   ,$2
-							   ,$3
-							   ,$4
-							   ,$5
-							   ,1)
-	`, user.Type, user.Username, user.Name, user.Email, user.Password)
+func (ur *UserRepository) CreateUser(user *model.User) (uint64, error) {
+	var id uint64
 
-	return err
+	err := ur.db.QueryRow(`
+		INSERT INTO barrel.users (
+			id,
+			type,
+			username,
+			name,
+			email,
+			password,
+			plan_id
+		) VALUES (
+			nextval('barrel.seq_users'),
+			$1, $2, $3, $4, $5, 1
+		)
+		RETURNING id
+	`, user.Type, user.Username, user.Name, user.Email, user.Password).Scan(&id)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
 
 func (ur *UserRepository) GetUserByID(id uint64) (*model.User, error) {

@@ -33,9 +33,14 @@ func NewApp(cfg *config.Config) *App {
 
 	v1.Use(auth.AuthecationMiddleware)
 
+	groupRepo := repository.NewGroupRepository(core.GetDB())
+	groupController := controller.NewGroupController(groupRepo)
+	groupHandler := handler.NewGroupHandler(groupController)
+	groupHandler.RegisterRoutes(v1)
+
 	userRepo := repository.NewUserRepository(core.GetDB())
 	prov := mqtt.NewMosqDynSec("tcp://dioge.com.br:1883", "admin", cfg.MQTTPassword)
-	userController := controller.NewUserController(userRepo, prov)
+	userController := controller.NewUserController(userRepo, groupRepo, prov)
 	userHandler := handler.NewUserHandler(userController)
 	userHandler.RegisterRoutes(authRouter)
 
@@ -44,10 +49,15 @@ func NewApp(cfg *config.Config) *App {
 	sessionHandler := handler.NewSessionHandler(sessionController)
 	sessionHandler.RegisterRoutes(authRouter)
 
-	workoutRepo := repository.NewWorkoutRepository(core.GetDB())
-	workoutController := controller.NewWorkoutController(workoutRepo)
-	workoutHandler := handler.NewWorkoutHandler(workoutController)
-	workoutHandler.RegisterRoutes(v1)
+	smartDeviceRepo := repository.NewSmartDeviceRepository(core.GetDB())
+	smartDeviceController := controller.NewSmartDeviceController(smartDeviceRepo, groupRepo)
+	smartDeviceHandler := handler.NewSmartDeviceHandler(smartDeviceController)
+	smartDeviceHandler.RegisterRoutes(v1)
+
+	deviceShareRepo := repository.NewDeviceShareRepository(core.GetDB())
+	deviceShareController := controller.NewDeviceShareController(deviceShareRepo, smartDeviceRepo, groupRepo)
+	deviceShareHandler := handler.NewDeviceShareHandler(deviceShareController)
+	deviceShareHandler.RegisterRoutes(v1)
 
 	return app
 }
