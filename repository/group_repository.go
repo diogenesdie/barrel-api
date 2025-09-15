@@ -18,9 +18,9 @@ func NewGroupRepository(db *sql.DB) *GroupRepository {
 
 func (gr *GroupRepository) CreateGroup(group *model.Group) error {
 	_, err := gr.db.Exec(`
-		insert into barrel.groups (user_id, name, position, icon)
-		values ($1, $2, $3, $4)
-	`, group.UserID, group.Name, group.Position, group.Icon)
+		insert into barrel.groups (user_id, name, position, icon, is_default)
+		values ($1, $2, $3, $4, $5)
+	`, group.UserID, group.Name, group.Position, group.Icon, group.IsDefault)
 
 	return err
 }
@@ -32,6 +32,7 @@ func (gr *GroupRepository) GetGroupByID(id uint64) (*model.Group, error) {
 			  ,g.name
 			  ,g.icon
 			  ,g.position
+			  ,g.is_default
 			  ,g.created_at
 			  ,g.updated_at
 		  from barrel.groups g
@@ -40,7 +41,7 @@ func (gr *GroupRepository) GetGroupByID(id uint64) (*model.Group, error) {
 
 	group := &model.Group{}
 
-	err := row.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.CreatedAt, &group.UpdatedAt)
+	err := row.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.IsDefault, &group.CreatedAt, &group.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrGroupNotFound
 	}
@@ -55,6 +56,7 @@ func (gr *GroupRepository) GetGroupsByUser(userID uint64) ([]model.Group, error)
 			  ,g.name
 			  ,g.icon
 			  ,g.position
+			  ,g.is_default
 			  ,g.created_at
 			  ,g.updated_at
 		  from barrel.groups g
@@ -69,7 +71,7 @@ func (gr *GroupRepository) GetGroupsByUser(userID uint64) ([]model.Group, error)
 	groups := []model.Group{}
 	for rows.Next() {
 		group := model.Group{}
-		if err := rows.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.CreatedAt, &group.UpdatedAt); err != nil {
+		if err := rows.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.IsDefault, &group.CreatedAt, &group.UpdatedAt); err != nil {
 			return nil, err
 		}
 		groups = append(groups, group)
@@ -84,9 +86,10 @@ func (gr *GroupRepository) UpdateGroup(group *model.Group) error {
 		   set name       = $1
 		      ,position   = $2
 			  ,icon       = $3
+			  ,is_default = $4
 		      ,updated_at = now()
-		 where id         = $4
-	`, group.Name, group.Position, group.Icon, group.ID)
+		 where id         = $5
+	`, group.Name, group.Position, group.Icon, group.IsDefault, group.ID)
 	if err != nil {
 		return err
 	}

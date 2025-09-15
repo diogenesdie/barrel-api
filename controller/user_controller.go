@@ -42,9 +42,10 @@ func (uc *UserController) CreateUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	} else {
 		group := model.Group{
-			Name:     "Casa",
-			UserID:   userID,
-			Position: 0,
+			Name:      "Casa",
+			UserID:    userID,
+			IsDefault: true,
+			Position:  0,
 		}
 
 		if err := uc.groupRepo.CreateGroup(&group); err != nil {
