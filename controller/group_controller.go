@@ -34,6 +34,7 @@ func (gc *GroupController) CreateGroupHandler(w http.ResponseWriter, r *http.Req
 	group.UserID = userID
 
 	if err := gc.groupRepo.CreateGroup(&group); err != nil {
+		print(err.Error())
 		writeResponse(w, http.StatusInternalServerError, "Failed to create group", nil)
 		return
 	}

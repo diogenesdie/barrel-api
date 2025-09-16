@@ -16,18 +16,26 @@ func NewSmartDeviceRepository(db *sql.DB) *SmartDeviceRepository {
 	return &SmartDeviceRepository{db}
 }
 
-func (sr *SmartDeviceRepository) CreateSmartDevice(device *model.SmartDevice) error {
-	_, err := sr.db.Exec(`
-		insert into barrel.smart_devices (
-		user_id, group_id, name, type, ip, iv_key, state, 
+func (sr *SmartDeviceRepository) CreateSmartDevice(device *model.SmartDevice) (uint64, error) {
+	var id uint64
+
+	err := sr.db.QueryRow(`
+		INSERT INTO barrel.smart_devices (
+			user_id, group_id, name, type, ip, iv_key, state, 
 			is_favorite, ssid, communication_mode, icon
 		)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		RETURNING id
 	`,
 		device.UserID, device.GroupID, device.Name, device.Type, device.IP, device.IVKey,
 		device.State, device.IsFavorite, device.SSID, device.CommunicationMode, device.Icon,
-	)
-	return err
+	).Scan(&id)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
 
 func (sr *SmartDeviceRepository) GetSmartDeviceByID(id uint64) (*model.SmartDevice, error) {

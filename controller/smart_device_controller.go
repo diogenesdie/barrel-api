@@ -44,9 +44,11 @@ func (dc *SmartDeviceController) CreateSmartDeviceHandler(w http.ResponseWriter,
 		}
 	}
 
-	if err := dc.deviceRepo.CreateSmartDevice(&device); err != nil {
+	if deviceId, err := dc.deviceRepo.CreateSmartDevice(&device); err != nil {
 		writeResponse(w, http.StatusInternalServerError, "Failed to create device", nil)
 		return
+	} else {
+		device.ID = deviceId
 	}
 
 	writeResponse(w, http.StatusCreated, "Device created successfully", device)
