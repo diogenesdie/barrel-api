@@ -22,13 +22,14 @@ func (sr *SmartDeviceRepository) CreateSmartDevice(device *model.SmartDevice) (u
 	err := sr.db.QueryRow(`
 		INSERT INTO barrel.smart_devices (
 			user_id, group_id, name, type, ip, iv_key, state, 
-			is_favorite, ssid, communication_mode, icon
+			is_favorite, ssid, communication_mode, icon, device_id
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		RETURNING id
 	`,
 		device.UserID, device.GroupID, device.Name, device.Type, device.IP, device.IVKey,
 		device.State, device.IsFavorite, device.SSID, device.CommunicationMode, device.Icon,
+		device.DeviceID,
 	).Scan(&id)
 
 	if err != nil {
@@ -52,6 +53,7 @@ func (sr *SmartDeviceRepository) GetSmartDeviceByID(id uint64) (*model.SmartDevi
 			  ,d.ssid
 			  ,d.communication_mode
 			  ,d.icon
+			  ,d.device_id
 			  ,d.created_at
 			  ,d.updated_at
 		  from barrel.smart_devices d
@@ -63,7 +65,7 @@ func (sr *SmartDeviceRepository) GetSmartDeviceByID(id uint64) (*model.SmartDevi
 	err := row.Scan(
 		&device.ID, &device.UserID, &device.GroupID, &device.Name, &device.Type, &device.IP,
 		&device.IVKey, &device.State, &device.IsFavorite, &device.SSID, &device.CommunicationMode,
-		&device.Icon, &device.CreatedAt, &device.UpdatedAt,
+		&device.Icon, &device.DeviceID, &device.CreatedAt, &device.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, ErrSmartDeviceNotFound
@@ -110,6 +112,7 @@ func (sr *SmartDeviceRepository) GetSmartDevicesByUser(userID uint64) ([]model.S
 			  ,d.ssid
 			  ,d.communication_mode
 			  ,d.icon
+			  ,d.device_id
 			  ,d.created_at
 			  ,d.updated_at
 			  ,ad.is_shared
@@ -131,7 +134,7 @@ func (sr *SmartDeviceRepository) GetSmartDevicesByUser(userID uint64) ([]model.S
 		if err := rows.Scan(
 			&device.ID, &device.UserID, &device.GroupID, &device.Name, &device.Type, &device.IP,
 			&device.IVKey, &device.State, &device.IsFavorite, &device.SSID, &device.CommunicationMode,
-			&device.Icon, &device.CreatedAt, &device.UpdatedAt, &device.IsShared,
+			&device.Icon, &device.DeviceID, &device.CreatedAt, &device.UpdatedAt, &device.IsShared,
 		); err != nil {
 			return nil, err
 		}

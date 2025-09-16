@@ -4,6 +4,7 @@ import "time"
 
 type SmartDevice struct {
 	ID                uint64    `json:"id"`
+	DeviceID          string    `json:"device_id"`
 	UserID            uint64    `json:"user_id"`
 	GroupID           *uint64   `json:"group_id,omitempty"`
 	Name              string    `json:"name"`

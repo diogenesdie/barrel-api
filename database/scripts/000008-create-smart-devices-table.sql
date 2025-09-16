@@ -3,6 +3,7 @@ create sequence if not exists barrel.seq_smart_devices;
 create table if not exists barrel.smart_devices
 (
   id                    bigint primary key default nextval('barrel.seq_smart_devices'),
+  device_id             varchar(100)               not null,
   user_id               bigint not null references barrel.users(id) on delete cascade,
   group_id              bigint references barrel.groups(id) on delete set null,
   name                  varchar(100)              not null,
