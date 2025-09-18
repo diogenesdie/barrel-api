@@ -57,12 +57,14 @@ func (dc *SmartDeviceController) CreateSmartDeviceHandler(w http.ResponseWriter,
 func (dc *SmartDeviceController) GetSmartDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.GetParsedUserId(r.Header.Get("user_id"))
 	if err != nil {
+		print(err.Error())
 		writeResponse(w, http.StatusBadRequest, "Invalid user ID", nil)
 		return
 	}
 
 	devices, err := dc.deviceRepo.GetSmartDevicesByUser(userID)
 	if err != nil {
+		print(err.Error())
 		writeResponse(w, http.StatusInternalServerError, "Failed to get devices", nil)
 		return
 	}

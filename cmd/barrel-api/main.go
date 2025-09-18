@@ -55,7 +55,7 @@ func NewApp(cfg *config.Config) *App {
 	smartDeviceHandler.RegisterRoutes(v1)
 
 	deviceShareRepo := repository.NewDeviceShareRepository(core.GetDB())
-	deviceShareController := controller.NewDeviceShareController(deviceShareRepo, smartDeviceRepo, groupRepo)
+	deviceShareController := controller.NewDeviceShareController(deviceShareRepo, smartDeviceRepo, groupRepo, userRepo, prov)
 	deviceShareHandler := handler.NewDeviceShareHandler(deviceShareController)
 	deviceShareHandler.RegisterRoutes(v1)
 

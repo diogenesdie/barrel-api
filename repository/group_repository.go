@@ -17,12 +17,32 @@ func NewGroupRepository(db *sql.DB) *GroupRepository {
 }
 
 func (gr *GroupRepository) CreateGroup(group *model.Group) error {
-	_, err := gr.db.Exec(`
+	tx, err := gr.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if group.IsDefault {
+		if _, err := tx.Exec(`
+			update barrel.groups
+			   set is_default = false
+			 where user_id = $1
+			   and is_default = true
+		`, group.UserID); err != nil {
+			return err
+		}
+	}
+
+	_, err = tx.Exec(`
 		insert into barrel.groups (user_id, name, position, icon, is_default)
 		values ($1, $2, $3, $4, $5)
 	`, group.UserID, group.Name, group.Position, group.Icon, group.IsDefault)
+	if err != nil {
+		return err
+	}
 
-	return err
+	return tx.Commit()
 }
 
 func (gr *GroupRepository) GetGroupByID(id uint64) (*model.Group, error) {
@@ -81,30 +101,57 @@ func (gr *GroupRepository) GetGroupsByUser(userID uint64) ([]model.Group, error)
 }
 
 func (gr *GroupRepository) UpdateGroup(group *model.Group) error {
-	res, err := gr.db.Exec(`
+	tx, err := gr.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if group.IsDefault {
+		// desmarca todos os outros do usuário
+		if _, err := tx.Exec(`
+			update barrel.groups
+			   set is_default = false
+			 where user_id = $1
+			   and id <> $2
+		`, group.UserID, group.ID); err != nil {
+			return err
+		}
+	}
+
+	res, err := tx.Exec(`
 		update barrel.groups
-		   set name       = $1
-		      ,position   = $2
-			  ,icon       = $3
-			  ,is_default = $4
-		      ,updated_at = now()
-		 where id         = $5
+		   set name       = $1,
+		       position   = $2,
+		       icon       = $3,
+		       is_default = $4,
+		       updated_at = now()
+		 where id = $5
 	`, group.Name, group.Position, group.Icon, group.IsDefault, group.ID)
 	if err != nil {
 		return err
 	}
-	rowsAffected, _ := res.RowsAffected()
-	if rowsAffected == 0 {
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
 		return ErrGroupNotFound
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func (gr *GroupRepository) DeleteGroup(id uint64) error {
+	group, err := gr.GetGroupByID(id)
+	if err != nil {
+		return err
+	}
+	if group.IsDefault {
+		return errors.New("cannot delete default group")
+	}
+
 	res, err := gr.db.Exec(`
 		delete from barrel.groups
-		 where id         = $1
+		 where id = $1
 	`, id)
 	if err != nil {
 		return err

@@ -2,9 +2,12 @@ package controller
 
 import (
 	"barrel-api/auth"
+	"barrel-api/internal/mqtt"
 	"barrel-api/model"
 	"barrel-api/repository"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -13,10 +16,12 @@ type DeviceShareController struct {
 	shareRepo  *repository.DeviceShareRepository
 	deviceRepo *repository.SmartDeviceRepository
 	groupRepo  *repository.GroupRepository
+	userRepo   *repository.UserRepository
+	mqttProv   mqtt.Provisioner
 }
 
-func NewDeviceShareController(shareRepo *repository.DeviceShareRepository, deviceRepo *repository.SmartDeviceRepository, groupRepo *repository.GroupRepository) *DeviceShareController {
-	return &DeviceShareController{shareRepo, deviceRepo, groupRepo}
+func NewDeviceShareController(shareRepo *repository.DeviceShareRepository, deviceRepo *repository.SmartDeviceRepository, groupRepo *repository.GroupRepository, userRepo *repository.UserRepository, mqttProv mqtt.Provisioner) *DeviceShareController {
+	return &DeviceShareController{shareRepo, deviceRepo, groupRepo, userRepo, mqttProv}
 }
 
 func (c *DeviceShareController) CreateShareHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +102,16 @@ func (c *DeviceShareController) AcceptShareHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
+	ctx := context.Background()
+	sharedWith, _ := c.userRepo.GetUserByID(share.SharedWithID)
+	owner, _ := c.userRepo.GetUserByID(share.OwnerID)
+
+	role := "role_" + sharedWith.Username
+	topic := fmt.Sprintf("users/%s/#", owner.Username)
+
+	_ = c.mqttProv.AddRoleACL(ctx, role, "subscribePattern", topic)
+	_ = c.mqttProv.AddRoleACL(ctx, role, "publishClientSend", topic)
+
 	writeResponse(w, http.StatusOK, "Share accepted", nil)
 }
 
@@ -124,6 +139,16 @@ func (c *DeviceShareController) RevokeShareHandler(w http.ResponseWriter, r *htt
 		writeResponse(w, http.StatusInternalServerError, "Failed to revoke share", nil)
 		return
 	}
+
+	ctx := context.Background()
+	sharedWith, _ := c.userRepo.GetUserByID(share.SharedWithID)
+	owner, _ := c.userRepo.GetUserByID(share.OwnerID)
+
+	role := "role_" + sharedWith.Username
+	topic := fmt.Sprintf("users/%s/#", owner.Username)
+
+	_ = c.mqttProv.RemoveRoleACL(ctx, role, "subscribePattern", topic)
+	_ = c.mqttProv.RemoveRoleACL(ctx, role, "publishClientSend", topic)
 
 	writeResponse(w, http.StatusOK, "Share revoked", nil)
 }

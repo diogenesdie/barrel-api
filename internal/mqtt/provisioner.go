@@ -14,6 +14,7 @@ type Provisioner interface {
 	DeleteUser(ctx context.Context, username string) error
 	CreateRole(ctx context.Context, role string) error
 	AddRoleACL(ctx context.Context, role string, aclType string, topic string) error
+	RemoveRoleACL(ctx context.Context, role string, aclType string, topic string) error // 👈 novo
 	AddClientRole(ctx context.Context, username, role string) error
 	DeleteRole(ctx context.Context, role string) error
 }

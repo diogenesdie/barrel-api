@@ -111,3 +111,13 @@ func (p *MosquittoDynSecProvisioner) DeleteRole(ctx context.Context, role string
 	}
 	return p.pub(cmd)
 }
+
+func (p *MosquittoDynSecProvisioner) RemoveRoleACL(ctx context.Context, role string, aclType string, topic string) error {
+	cmd := map[string]any{
+		"command":  "removeRoleACL",
+		"rolename": role,
+		"acltype":  aclType,
+		"topic":    topic,
+	}
+	return p.pub(cmd)
+}
