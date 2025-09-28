@@ -46,14 +46,17 @@ func (r *DeviceShareRepository) Create(ds *model.DeviceShare) error {
 
 func (r *DeviceShareRepository) GetByID(id uint64) (*model.DeviceShare, error) {
 	row := r.db.QueryRow(`
-		select id, owner_id, shared_with_id, device_id, group_id, status,
-			   accepted_at, revoked_at, created_at, updated_at
-		  from barrel.device_shares
-		 where id = $1 and deleted_at is null
+		select ds.id, ds.owner_id, u.name as owner_name, ds.shared_with_id, ds.device_id, ds.group_id, ds.status,
+			   ds.accepted_at, ds.revoked_at, ds.created_at, ds.updated_at
+		  from barrel.device_shares ds
+		      ,barrel.users u
+		 where u.id = ds.owner_id
+		   and ds.id = $1 
+		   and ds.deleted_at is null
 	`, id)
 
 	var ds model.DeviceShare
-	err := row.Scan(&ds.ID, &ds.OwnerID, &ds.SharedWithID, &ds.DeviceID, &ds.GroupID,
+	err := row.Scan(&ds.ID, &ds.OwnerID, &ds.OwnerName, &ds.SharedWithID, &ds.DeviceID, &ds.GroupID,
 		&ds.Status, &ds.AcceptedAt, &ds.RevokedAt, &ds.CreatedAt, &ds.UpdatedAt)
 
 	if err == sql.ErrNoRows {
@@ -64,10 +67,12 @@ func (r *DeviceShareRepository) GetByID(id uint64) (*model.DeviceShare, error) {
 
 func (r *DeviceShareRepository) GetByUser(userID uint64) ([]model.DeviceShare, error) {
 	rows, err := r.db.Query(`
-		select id, owner_id, shared_with_id, device_id, group_id, status,
-			   accepted_at, revoked_at, created_at, updated_at
-		  from barrel.device_shares
-		 where (owner_id = $1 or shared_with_id = $1) and deleted_at is null
+		select ds.id, ds.owner_id, u.name as owner_name, ds.shared_with_id, ds.device_id, ds.group_id, ds.status,
+			   ds.accepted_at, ds.revoked_at, ds.created_at, ds.updated_at
+		  from barrel.device_shares ds
+		      ,barrel.users u
+		 where u.id = ds.owner_id
+		   and (ds.owner_id = $1 or ds.shared_with_id = $1) and ds.deleted_at is null
 	`, userID)
 	if err != nil {
 		return nil, err
@@ -77,7 +82,7 @@ func (r *DeviceShareRepository) GetByUser(userID uint64) ([]model.DeviceShare, e
 	var list []model.DeviceShare
 	for rows.Next() {
 		var ds model.DeviceShare
-		if err := rows.Scan(&ds.ID, &ds.OwnerID, &ds.SharedWithID, &ds.DeviceID, &ds.GroupID,
+		if err := rows.Scan(&ds.ID, &ds.OwnerID, &ds.OwnerName, &ds.SharedWithID, &ds.DeviceID, &ds.GroupID,
 			&ds.Status, &ds.AcceptedAt, &ds.RevokedAt, &ds.CreatedAt, &ds.UpdatedAt); err != nil {
 			return nil, err
 		}

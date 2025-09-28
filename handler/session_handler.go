@@ -16,4 +16,5 @@ func NewSessionHandler(sessionController *controller.SessionController) *Session
 
 func (sh *SessionHandler) RegisterRoutes(mux *mux.Router) {
 	mux.HandleFunc("/login", sh.sessionController.Login).Methods("POST")
+	mux.HandleFunc("/register", sh.sessionController.Register).Methods("POST")
 }

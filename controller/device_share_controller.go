@@ -158,6 +158,7 @@ func (c *DeviceShareController) GetSharesHandler(w http.ResponseWriter, r *http.
 
 	shares, err := c.shareRepo.GetByUser(userID)
 	if err != nil {
+		print(err.Error())
 		writeResponse(w, http.StatusInternalServerError, "Failed to get shares", nil)
 		return
 	}

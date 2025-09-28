@@ -63,3 +63,42 @@ func (sc *SessionController) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(response.Status)
 	json.NewEncoder(w).Encode(response)
 }
+
+func (sc *SessionController) Register(w http.ResponseWriter, r *http.Request) {
+	var user model.User
+
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		http.Error(w, "Failed to decode request body, verify your data type and fields", http.StatusBadRequest)
+		return
+	}
+
+	session, err := sc.sessionRepo.Register(&user)
+
+	var userID uint64
+	if session != nil {
+		userID = session.UserID
+	}
+
+	response := model.Response{
+		Message: "User created successfully",
+		Data:    map[string]uint64{"id": userID},
+		Code:    0,
+		Status:  http.StatusCreated,
+	}
+
+	if err != nil {
+		switch err {
+		case repository.ErrUserAlreadyExists:
+			response.Status = http.StatusConflict
+			response.Message = "User already exists"
+		default:
+			response.Status = http.StatusInternalServerError
+			response.Message = "Internal server error"
+		}
+		response.Data = nil
+	}
+
+	w.WriteHeader(response.Status)
+	json.NewEncoder(w).Encode(response)
+}

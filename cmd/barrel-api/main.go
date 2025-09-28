@@ -31,7 +31,7 @@ func NewApp(cfg *config.Config) *App {
 	authRouter := app.Router.PathPrefix("/auth/v1").Subrouter()
 	v1 := app.Router.PathPrefix("/api/v1").Subrouter()
 
-	v1.Use(auth.AuthecationMiddleware)
+	v1.Use(auth.AuthenticationMiddleware(repository.NewSessionRepository(core.GetDB())))
 
 	groupRepo := repository.NewGroupRepository(core.GetDB())
 	groupController := controller.NewGroupController(groupRepo)
