@@ -3,7 +3,7 @@ create sequence if not exists barrel.seq_users;
 create table if not exists barrel.users
 (
   id         bigint primary key default nextval('barrel.seq_users'),
-  type       varchar(20)              not null check ( type in ('A','N','P') ),
+  type       varchar(20)              not null check ( type in ('A','U') ),
   username   varchar(50) unique       not null,
   name       text                     not null,
   email      varchar(50) unique       not null,
@@ -44,4 +44,4 @@ create trigger trg_users_biu
 
 insert into barrel.users (type, username, name, email, password, plan_id)
 values ('A', 'teste', 'Usuário Teste', 'teste@teste.com', '1234', 1), 
-       ('N', 'nutri', 'Nutricionista Teste', 'nutri@teste.com', '1234', 2);
+       ('U', 'nutri', 'Nutricionista Teste', 'nutri@teste.com', '1234', 2);
