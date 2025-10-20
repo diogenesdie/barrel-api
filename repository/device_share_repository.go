@@ -100,3 +100,26 @@ func (r *DeviceShareRepository) UpdateStatus(id uint64, status string) error {
 	`, status, id)
 	return err
 }
+
+func (r *DeviceShareRepository) GetActiveShareByDeviceAndUser(deviceID uint64, userID uint64) (*model.DeviceShare, error) {
+	row := r.db.QueryRow(`
+		select ds.id, ds.owner_id, u.name as owner_name, ds.shared_with_id, ds.device_id, ds.group_id, ds.status,
+			   ds.accepted_at, ds.revoked_at, ds.created_at, ds.updated_at
+		  from barrel.device_shares ds
+		      ,barrel.users u
+		 where u.id = ds.owner_id
+		   and ds.device_id = $1 
+		   and ds.shared_with_id = $2
+		   and ds.status = 'A'
+		   and ds.deleted_at is null
+	`, deviceID, userID)
+
+	var ds model.DeviceShare
+	err := row.Scan(&ds.ID, &ds.OwnerID, &ds.OwnerName, &ds.SharedWithID, &ds.DeviceID, &ds.GroupID,
+		&ds.Status, &ds.AcceptedAt, &ds.RevokedAt, &ds.CreatedAt, &ds.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrDeviceShareNotFound
+	}
+	return &ds, err
+}

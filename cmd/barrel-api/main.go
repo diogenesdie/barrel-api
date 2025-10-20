@@ -50,11 +50,12 @@ func NewApp(cfg *config.Config) *App {
 	sessionHandler.RegisterRoutes(authRouter)
 
 	smartDeviceRepo := repository.NewSmartDeviceRepository(core.GetDB())
-	smartDeviceController := controller.NewSmartDeviceController(smartDeviceRepo, groupRepo)
+	deviceShareRepo := repository.NewDeviceShareRepository(core.GetDB())
+	smartDeviceShareRepo := repository.NewSmartDeviceShareRepository(core.GetDB())
+	smartDeviceController := controller.NewSmartDeviceController(smartDeviceRepo, groupRepo, deviceShareRepo, smartDeviceShareRepo)
 	smartDeviceHandler := handler.NewSmartDeviceHandler(smartDeviceController)
 	smartDeviceHandler.RegisterRoutes(v1)
 
-	deviceShareRepo := repository.NewDeviceShareRepository(core.GetDB())
 	deviceShareController := controller.NewDeviceShareController(deviceShareRepo, smartDeviceRepo, groupRepo, userRepo, prov)
 	deviceShareHandler := handler.NewDeviceShareHandler(deviceShareController)
 	deviceShareHandler.RegisterRoutes(v1)

@@ -12,12 +12,14 @@ import (
 )
 
 type SmartDeviceController struct {
-	deviceRepo *repository.SmartDeviceRepository
-	groupRepo  *repository.GroupRepository
+	deviceRepo           *repository.SmartDeviceRepository
+	groupRepo            *repository.GroupRepository
+	deviceShareRepo      *repository.DeviceShareRepository
+	smartDeviceShareRepo *repository.SmartDeviceShareRepository
 }
 
-func NewSmartDeviceController(deviceRepo *repository.SmartDeviceRepository, groupRepo *repository.GroupRepository) *SmartDeviceController {
-	return &SmartDeviceController{deviceRepo: deviceRepo, groupRepo: groupRepo}
+func NewSmartDeviceController(deviceRepo *repository.SmartDeviceRepository, groupRepo *repository.GroupRepository, deviceShareRepo *repository.DeviceShareRepository, smartDeviceShareRepo *repository.SmartDeviceShareRepository) *SmartDeviceController {
+	return &SmartDeviceController{deviceRepo: deviceRepo, groupRepo: groupRepo, deviceShareRepo: deviceShareRepo, smartDeviceShareRepo: smartDeviceShareRepo}
 }
 
 func (dc *SmartDeviceController) CreateSmartDeviceHandler(w http.ResponseWriter, r *http.Request) {
@@ -129,32 +131,62 @@ func (dc *SmartDeviceController) UpdateSmartDeviceHandler(w http.ResponseWriter,
 		return
 	}
 
-	if device.UserID != userID {
-		writeResponse(w, http.StatusForbidden, "Forbidden", nil)
+	// Se o usuário for dono → update normal em smart_devices
+	if device.UserID == userID {
+		if err := json.NewDecoder(r.Body).Decode(device); err != nil {
+			writeResponse(w, http.StatusBadRequest, "Failed to decode body", nil)
+			return
+		}
+		device.UserID = userID
+
+		if device.GroupID != nil {
+			group, err := dc.groupRepo.GetGroupByID(*device.GroupID)
+			if err != nil || group.UserID != userID {
+				writeResponse(w, http.StatusForbidden, "Invalid group", nil)
+				return
+			}
+		}
+
+		if err := dc.deviceRepo.UpdateSmartDevice(device); err != nil {
+			writeResponse(w, http.StatusInternalServerError, "Failed to update device", nil)
+			return
+		}
+
+		writeResponse(w, http.StatusOK, "Device updated successfully", device)
 		return
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(device); err != nil {
+	share, err := dc.deviceShareRepo.GetActiveShareByDeviceAndUser(deviceID, userID)
+	if err != nil {
+		if err == repository.ErrDeviceShareNotFound {
+			writeResponse(w, http.StatusForbidden, "Forbidden", nil)
+			return
+		}
+		writeResponse(w, http.StatusInternalServerError, "Failed to check device share", nil)
+		return
+	}
+
+	var shareUpdate model.SmartDeviceShare
+	if err := json.NewDecoder(r.Body).Decode(&shareUpdate); err != nil {
 		writeResponse(w, http.StatusBadRequest, "Failed to decode body", nil)
 		return
 	}
-	device.UserID = userID
 
-	// valida grupo se mudou
-	if device.GroupID != nil {
-		group, err := dc.groupRepo.GetGroupByID(*device.GroupID)
-		if err != nil || group.UserID != userID {
-			writeResponse(w, http.StatusForbidden, "Invalid group", nil)
-			return
-		}
-	}
+	//print as json
+	shareUpdateJson, _ := json.Marshal(shareUpdate)
+	print(string(shareUpdateJson))
 
-	if err := dc.deviceRepo.UpdateSmartDevice(device); err != nil {
-		writeResponse(w, http.StatusInternalServerError, "Failed to update device", nil)
+	shareUpdate.DeviceShareID = share.ID
+	shareUpdate.DeviceID = deviceID
+	shareUpdate.UserID = userID
+
+	if err := dc.smartDeviceShareRepo.UpsertSmartDeviceShare(&shareUpdate); err != nil {
+		print(err.Error())
+		writeResponse(w, http.StatusInternalServerError, "Failed to update shared device", nil)
 		return
 	}
 
-	writeResponse(w, http.StatusOK, "Device updated successfully", device)
+	writeResponse(w, http.StatusOK, "Shared device updated successfully", shareUpdate)
 }
 
 func (dc *SmartDeviceController) DeleteSmartDeviceHandler(w http.ResponseWriter, r *http.Request) {

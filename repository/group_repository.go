@@ -34,10 +34,11 @@ func (gr *GroupRepository) CreateGroup(group *model.Group) error {
 		}
 	}
 
-	_, err = tx.Exec(`
-		insert into barrel.groups (user_id, name, position, icon, is_default)
-		values ($1, $2, $3, $4, $5)
-	`, group.UserID, group.Name, group.Position, group.Icon, group.IsDefault)
+	err = tx.QueryRow(`
+		insert into barrel.groups (user_id, name, position, icon, is_default, is_share_group)
+		values ($1, $2, $3, $4, $5, $6)
+		returning id
+	`, group.UserID, group.Name, group.Position, group.Icon, group.IsDefault, group.IsShareGroup).Scan(&group.ID)
 	if err != nil {
 		return err
 	}
@@ -53,6 +54,7 @@ func (gr *GroupRepository) GetGroupByID(id uint64) (*model.Group, error) {
 			  ,g.icon
 			  ,g.position
 			  ,g.is_default
+			  ,g.is_share_group
 			  ,g.created_at
 			  ,g.updated_at
 		  from barrel.groups g
@@ -61,7 +63,7 @@ func (gr *GroupRepository) GetGroupByID(id uint64) (*model.Group, error) {
 
 	group := &model.Group{}
 
-	err := row.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.IsDefault, &group.CreatedAt, &group.UpdatedAt)
+	err := row.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.IsDefault, &group.IsShareGroup, &group.CreatedAt, &group.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrGroupNotFound
 	}
@@ -77,6 +79,7 @@ func (gr *GroupRepository) GetGroupsByUser(userID uint64) ([]model.Group, error)
 			  ,g.icon
 			  ,g.position
 			  ,g.is_default
+			  ,g.is_share_group
 			  ,g.created_at
 			  ,g.updated_at
 		  from barrel.groups g
@@ -91,7 +94,7 @@ func (gr *GroupRepository) GetGroupsByUser(userID uint64) ([]model.Group, error)
 	groups := []model.Group{}
 	for rows.Next() {
 		group := model.Group{}
-		if err := rows.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.IsDefault, &group.CreatedAt, &group.UpdatedAt); err != nil {
+		if err := rows.Scan(&group.ID, &group.UserID, &group.Name, &group.Icon, &group.Position, &group.IsDefault, &group.IsShareGroup, &group.CreatedAt, &group.UpdatedAt); err != nil {
 			return nil, err
 		}
 		groups = append(groups, group)

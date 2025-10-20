@@ -41,16 +41,30 @@ func (uc *UserController) CreateUserHandler(w http.ResponseWriter, r *http.Reque
 		writeResponse(w, http.StatusInternalServerError, "Failed to create user", nil)
 		return
 	} else {
-		group := model.Group{
+		defaultGroup := model.Group{
 			Name:      "Casa",
 			UserID:    userID,
 			IsDefault: true,
 			Position:  0,
 		}
 
-		if err := uc.groupRepo.CreateGroup(&group); err != nil {
+		if err := uc.groupRepo.CreateGroup(&defaultGroup); err != nil {
 			log.Printf("Failed to create group: %v", err)
 			writeResponse(w, http.StatusInternalServerError, "Failed to create group", nil)
+			return
+		}
+
+		shareGroup := model.Group{
+			Name:         "Compartilhados comigo",
+			UserID:       userID,
+			IsDefault:    false,
+			IsShareGroup: true,
+			Position:     1,
+		}
+
+		if err := uc.groupRepo.CreateGroup(&shareGroup); err != nil {
+			log.Printf("Failed to create share group: %v", err)
+			writeResponse(w, http.StatusInternalServerError, "Failed to create share group", nil)
 			return
 		}
 	}

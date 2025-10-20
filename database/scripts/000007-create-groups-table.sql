@@ -2,14 +2,15 @@ create sequence if not exists barrel.seq_groups;
 
 create table if not exists barrel.groups
 (
-  id            bigint primary key default nextval('barrel.seq_groups'),
-  user_id       bigint not null references barrel.users(id) on delete cascade,
-  name          varchar(100)              not null,
-  icon          varchar(100),
-  is_default    boolean                  not null default false,
-  position      int                       not null default 0,
-  created_at    timestamp with time zone  not null default current_timestamp,
-  updated_at    timestamp with time zone  not null default current_timestamp
+  id             bigint primary key default nextval('barrel.seq_groups'),
+  user_id        bigint not null references barrel.users(id) on delete cascade,
+  name           varchar(100)              not null,
+  icon           varchar(100),
+  is_default     boolean                  not null default false,
+  is_share_group boolean                  not null default false,
+  position       int                       not null default 0,
+  created_at     timestamp with time zone  not null default current_timestamp,
+  updated_at     timestamp with time zone  not null default current_timestamp
 );
 
 comment on table barrel.groups is 'Grupos de dispositivos criados pelo usuário';
