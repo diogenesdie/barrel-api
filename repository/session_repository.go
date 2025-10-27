@@ -69,6 +69,7 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 		select u.id
 		      ,u.username
 		      ,u.name
+			  ,u.code
 		      ,u.type
 		      ,u.email
 		      ,u.plan_id
@@ -81,12 +82,12 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 	`, login.Username, login.Password)
 
 	var userID uint64
-	var username, name, userType, email string
+	var username, name, userType, email, code string
 	var planID sql.NullInt64
 	var userCreatedAt, userUpdatedAt time.Time
 	var passwordMatch bool
 
-	err := row.Scan(&userID, &username, &name, &userType, &email, &planID, &userCreatedAt, &userUpdatedAt, &passwordMatch)
+	err := row.Scan(&userID, &username, &name, &code, &userType, &email, &planID, &userCreatedAt, &userUpdatedAt, &passwordMatch)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -122,6 +123,7 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 		UserID:    userID,
 		Username:  username,
 		Name:      name,
+		Code:      code,
 		Email:     email,
 		Token:     tokenString,
 		CreatedAt: now,

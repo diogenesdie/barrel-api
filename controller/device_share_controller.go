@@ -59,6 +59,24 @@ func (c *DeviceShareController) CreateShareHandler(w http.ResponseWriter, r *htt
 		}
 	}
 
+	var sharedUserName string
+
+	if ds.SharedWithID == 0 && ds.Code != "" {
+		userID, err := c.userRepo.GetUserIDByCode(ds.Code)
+		if err != nil {
+			writeResponse(w, http.StatusNotFound, "User with provided code not found", nil)
+			return
+		}
+		ds.SharedWithID = userID
+
+		user, err := c.userRepo.GetUserByID(userID)
+		if err != nil {
+			writeResponse(w, http.StatusNotFound, "Failed to fetch shared user details", nil)
+			return
+		}
+		sharedUserName = user.Name
+	}
+
 	exists, err := c.shareRepo.ExistsActiveShare(ds.DeviceID, ds.GroupID, ds.SharedWithID)
 	if err != nil {
 		writeResponse(w, http.StatusInternalServerError, "Failed to check existing shares", nil)
@@ -74,7 +92,11 @@ func (c *DeviceShareController) CreateShareHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	writeResponse(w, http.StatusCreated, "Share created successfully (pending)", nil)
+	data := map[string]interface{}{
+		"name": sharedUserName,
+	}
+
+	writeResponse(w, http.StatusCreated, "Share created successfully (pending)", data)
 }
 
 func (c *DeviceShareController) AcceptShareHandler(w http.ResponseWriter, r *http.Request) {

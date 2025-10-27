@@ -9,6 +9,7 @@ type Session struct {
 	UserID           uint64            `json:"user_id"`
 	Username         string            `json:"username"`
 	Name             string            `json:"name"`
+	Code             string            `json:"code"`
 	Email            string            `json:"email"`
 	Token            string            `json:"token"`
 	CreatedAt        time.Time         `json:"created_at"`

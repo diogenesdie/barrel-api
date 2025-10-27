@@ -131,3 +131,20 @@ func (ur *UserRepository) DeleteUser(id uint64) error {
 
 	return err
 }
+
+func (ur *UserRepository) GetUserIDByCode(code string) (uint64, error) {
+	var id uint64
+
+	err := ur.db.QueryRow(`
+		select u.id
+		  from barrel.users u
+		 where u.code = $1
+		   and u.status = 'A'
+	`, code).Scan(&id)
+
+	if err == sql.ErrNoRows {
+		return 0, ErrUserNotFound
+	}
+
+	return id, err
+}
