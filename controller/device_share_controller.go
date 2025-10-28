@@ -120,6 +120,7 @@ func (c *DeviceShareController) AcceptShareHandler(w http.ResponseWriter, r *htt
 	}
 
 	if err := c.shareRepo.UpdateStatus(share.ID, "A"); err != nil {
+		print(err.Error())
 		writeResponse(w, http.StatusInternalServerError, "Failed to accept share", nil)
 		return
 	}

@@ -92,13 +92,118 @@ func (r *DeviceShareRepository) GetByUser(userID uint64) ([]model.DeviceShare, e
 }
 
 func (r *DeviceShareRepository) UpdateStatus(id uint64, status string) error {
-	_, err := r.db.Exec(`
-		update barrel.device_shares
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Atualiza status e já retorna dados necessários para decidir o que fazer
+	var (
+		shareID          int64
+		sharedWithID     int64
+		deviceIDNullable sql.NullInt64
+		groupIDNullable  sql.NullInt64
+		newStatus        string
+	)
+	err = tx.QueryRow(`
+		update barrel.device_shares ds
 		   set status = $1,
 		       updated_at = now()
-		 where id = $2 and deleted_at is null
-	`, status, id)
-	return err
+		 where ds.id = $2
+		   and ds.deleted_at is null
+		returning ds.id, ds.shared_with_id, ds.device_id, ds.group_id, ds.status
+	`, status, id).Scan(&shareID, &sharedWithID, &deviceIDNullable, &groupIDNullable, &newStatus)
+	if err != nil {
+		return err
+	}
+
+	// Só cria smart_devices_share quando a share fica ativa
+	if newStatus != "A" {
+		return tx.Commit()
+	}
+
+	// Descobre o group_id "recebedor" do usuário (grupo com is_share_group = true)
+	var recvShareGroupID sql.NullInt64
+	err = tx.QueryRow(`
+		select g.id
+		  from barrel.groups g
+		 where g.user_id = $1
+		   and g.is_share_group = true
+		 order by g.id
+		 limit 1
+	`, sharedWithID).Scan(&recvShareGroupID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	// Se não existir, vamos seguir com NULL (o campo permite null e tem ON DELETE SET NULL)
+
+	// Prepara INSERT com ON CONFLICT (device_id, user_id) DO NOTHING para não sobrescrever prefs
+	stmt, err := tx.Prepare(`
+		insert into barrel.smart_devices_share
+			(device_share_id, device_id, user_id, group_id, is_favorite)
+		values
+			($1, $2, $3, $4, false)
+		on conflict (device_id, user_id) do nothing
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	// Caso 1: compartilhamento de 1 device
+	if deviceIDNullable.Valid {
+		_, err = stmt.Exec(shareID, deviceIDNullable.Int64, sharedWithID,
+			func() any {
+				if recvShareGroupID.Valid {
+					return recvShareGroupID.Int64
+				}
+				return nil
+			}(),
+		)
+		if err != nil {
+			return err
+		}
+	} else if groupIDNullable.Valid {
+		// Caso 2: compartilhamento de grupo -> criar para todos os devices do grupo compartilhado
+		rows, qerr := tx.Query(`
+			select d.id
+			  from barrel.smart_devices d
+			 where d.group_id = $1
+			   and d.deleted_at is null
+		`, groupIDNullable.Int64)
+		if qerr != nil {
+			err = qerr
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var devID int64
+			if err = rows.Scan(&devID); err != nil {
+				return err
+			}
+			if _, err = stmt.Exec(shareID, devID, sharedWithID,
+				func() any {
+					if recvShareGroupID.Valid {
+						return recvShareGroupID.Int64
+					}
+					return nil
+				}(),
+			); err != nil {
+				return err
+			}
+		}
+		if err = rows.Err(); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r *DeviceShareRepository) GetActiveShareByDeviceAndUser(deviceID uint64, userID uint64) (*model.DeviceShare, error) {

@@ -87,12 +87,3 @@ create trigger trg_users_biu
   before insert or update on barrel.users
   for each row
   execute function fnc_trg_users_biu();
-
--- 5) Inserts de exemplo (geram CODE automaticamente)
-insert into barrel.users (type, username, name, email, password, plan_id)
-values 
-  ('A', 'teste', 'Usuário Teste', 'teste@teste.com', '1234', 1), 
-  ('U', 'nutri', 'Nutricionista Teste', 'nutri@teste.com', '1234', 2);
-
--- 6) Conferência (opcional)
--- select id, username, email, code from barrel.users order by id;

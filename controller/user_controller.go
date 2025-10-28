@@ -41,9 +41,11 @@ func (uc *UserController) CreateUserHandler(w http.ResponseWriter, r *http.Reque
 		writeResponse(w, http.StatusInternalServerError, "Failed to create user", nil)
 		return
 	} else {
+		icon := "house"
 		defaultGroup := model.Group{
 			Name:      "Casa",
 			UserID:    userID,
+			Icon:      &icon,
 			IsDefault: true,
 			Position:  0,
 		}
@@ -54,10 +56,12 @@ func (uc *UserController) CreateUserHandler(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
+		shareIcon := "share"
 		shareGroup := model.Group{
 			Name:         "Compartilhados comigo",
 			UserID:       userID,
 			IsDefault:    false,
+			Icon:         &shareIcon,
 			IsShareGroup: true,
 			Position:     1,
 		}
