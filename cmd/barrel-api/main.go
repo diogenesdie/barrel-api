@@ -48,7 +48,7 @@ func NewApp(cfg *config.Config) *App {
 	profileHandler.RegisterRoutes(v1)
 
 	sessionRepo := repository.NewSessionRepository(core.GetDB())
-	sessionController := controller.NewSessionController(sessionRepo)
+	sessionController := controller.NewSessionController(sessionRepo, groupRepo, prov)
 	sessionHandler := handler.NewSessionHandler(sessionController)
 	sessionHandler.RegisterRoutes(authRouter)
 
