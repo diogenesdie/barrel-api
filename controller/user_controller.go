@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"barrel-api/auth"
 	"barrel-api/internal/mqtt"
 	"barrel-api/model"
 	"barrel-api/repository"
@@ -204,7 +205,63 @@ func (uc *UserController) DeleteUserHandler(w http.ResponseWriter, r *http.Reque
 	writeResponse(w, http.StatusOK, "User deleted successfully", nil)
 }
 
-// helper para resposta padronizada
+func (uc *UserController) UpdateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetParsedUserId(r.Header.Get("user_id"))
+
+	if err != nil || userID == 0 {
+		writeResponse(w, http.StatusUnauthorized, "Not authorized", nil)
+		return
+	}
+
+	u, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		if err == repository.ErrUserNotFound {
+			writeResponse(w, http.StatusNotFound, "User not found", nil)
+			return
+		}
+		writeResponse(w, http.StatusInternalServerError, "Failed to load user", nil)
+		return
+	}
+
+	var req model.UpdateUserProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeResponse(w, http.StatusBadRequest, "Failed to decode request body", nil)
+		return
+	}
+
+	if req.Name != nil {
+		u.Name = *req.Name
+	}
+
+	if req.Email != nil {
+		u.Email = *req.Email
+	}
+
+	if req.BiometricLogin != nil {
+		u.BiometricLogin = *req.BiometricLogin
+	}
+
+	if req.BiometricEdit != nil {
+		u.BiometricEdit = *req.BiometricEdit
+	}
+
+	if req.BiometricRemove != nil {
+		u.BiometricRemove = *req.BiometricRemove
+	}
+
+	if err := uc.userRepo.UpdateUser(u); err != nil {
+		if err == repository.ErrUserNotFound {
+			writeResponse(w, http.StatusNotFound, "User not found", nil)
+			return
+		}
+		print(err.Error())
+		writeResponse(w, http.StatusInternalServerError, "Failed to update user", nil)
+		return
+	}
+
+	writeResponse(w, http.StatusOK, "Profile updated successfully", u)
+}
+
 func writeResponse(w http.ResponseWriter, status int, message string, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

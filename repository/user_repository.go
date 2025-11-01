@@ -106,9 +106,12 @@ func (ur *UserRepository) UpdateUser(user *model.User) error {
 		      ,username   = $2
 			  ,name       = $3
 			  ,email      = $4
+			  ,biometric_login  = $5
+			  ,biometric_edit   = $6
+			  ,biometric_remove = $7
 			  ,updated_at = now()
-		 where id         = $5
-	`, user.Type, user.Username, user.Name, user.Email, user.ID)
+		 where id         = $8
+	`, user.Type, user.Username, user.Name, user.Email, user.BiometricLogin, user.BiometricEdit, user.BiometricRemove, user.ID)
 
 	if err == sql.ErrNoRows {
 		return ErrUserNotFound

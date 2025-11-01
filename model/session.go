@@ -11,6 +11,9 @@ type Session struct {
 	Name             string            `json:"name"`
 	Code             string            `json:"code"`
 	Email            string            `json:"email"`
+	BiometricLogin   bool              `json:"biometric_login"`
+	BiometricEdit    bool              `json:"biometric_edit"`
+	BiometricRemove  bool              `json:"biometric_remove"`
 	Token            string            `json:"token"`
 	CreatedAt        time.Time         `json:"created_at"`
 	UpdatedAt        time.Time         `json:"updated_at"`

@@ -72,6 +72,9 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 			  ,u.code
 		      ,u.type
 		      ,u.email
+			  ,u.biometric_login
+			  ,u.biometric_edit
+			  ,u.biometric_remove
 		      ,u.plan_id
 		      ,u.created_at
 		      ,u.updated_at
@@ -86,8 +89,9 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 	var planID sql.NullInt64
 	var userCreatedAt, userUpdatedAt time.Time
 	var passwordMatch bool
+	var biometricLogin, biometricEdit, biometricRemove bool
 
-	err := row.Scan(&userID, &username, &name, &code, &userType, &email, &planID, &userCreatedAt, &userUpdatedAt, &passwordMatch)
+	err := row.Scan(&userID, &username, &name, &code, &userType, &email, &biometricLogin, &biometricEdit, &biometricRemove, &planID, &userCreatedAt, &userUpdatedAt, &passwordMatch)
 
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -120,16 +124,19 @@ func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
 
 	now := time.Now()
 	session := &model.Session{
-		UserID:    userID,
-		Username:  username,
-		Name:      name,
-		Code:      code,
-		Email:     email,
-		Token:     tokenString,
-		CreatedAt: now,
-		UpdatedAt: now,
-		Status:    "A",
-		ExpiresAt: now.Add(time.Hour * 24),
+		UserID:          userID,
+		Username:        username,
+		Name:            name,
+		Code:            code,
+		Email:           email,
+		BiometricLogin:  biometricLogin,
+		BiometricEdit:   biometricEdit,
+		BiometricRemove: biometricRemove,
+		Token:           tokenString,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		Status:          "A",
+		ExpiresAt:       now.Add(time.Hour * 24),
 	}
 
 	if planID.Valid {
