@@ -56,8 +56,11 @@ func (sr *SmartDeviceRepository) GetSmartDeviceByID(id uint64) (*model.SmartDevi
 			  ,d.device_id
 			  ,d.created_at
 			  ,d.updated_at
+			  ,u.username as owner_username
 		  from barrel.smart_devices d
-		 where d.id = $1
+		      ,barrel.users u
+		 where u.id = d.user_id
+		   and d.id = $1
 		   and d.deleted_at is null
 	`, id)
 
@@ -65,7 +68,7 @@ func (sr *SmartDeviceRepository) GetSmartDeviceByID(id uint64) (*model.SmartDevi
 	err := row.Scan(
 		&device.ID, &device.UserID, &device.GroupID, &device.Name, &device.Type, &device.IP,
 		&device.IVKey, &device.State, &device.IsFavorite, &device.SSID, &device.CommunicationMode,
-		&device.Icon, &device.DeviceID, &device.CreatedAt, &device.UpdatedAt,
+		&device.Icon, &device.DeviceID, &device.CreatedAt, &device.UpdatedAt, &device.OwnerUsername,
 	)
 	if err == sql.ErrNoRows {
 		return nil, ErrSmartDeviceNotFound
@@ -117,8 +120,10 @@ func (sr *SmartDeviceRepository) GetSmartDevicesByUser(userID uint64) ([]model.S
 			d.device_id,
 			d.created_at,
 			d.updated_at,
-			ad.is_shared
+			ad.is_shared,
+			u.username as owner_username
 		from barrel.smart_devices d
+		join barrel.users u on u.id = d.user_id
 		join all_devices ad on ad.id = d.id
 		left join barrel.smart_devices_share sds 
 				on sds.device_share_id = ad.device_share_id
@@ -139,7 +144,7 @@ func (sr *SmartDeviceRepository) GetSmartDevicesByUser(userID uint64) ([]model.S
 		if err := rows.Scan(
 			&device.ID, &device.UserID, &device.GroupID, &device.Name, &device.Type, &device.IP,
 			&device.IVKey, &device.State, &device.IsFavorite, &device.SSID, &device.CommunicationMode,
-			&device.Icon, &device.DeviceID, &device.CreatedAt, &device.UpdatedAt, &device.IsShared,
+			&device.Icon, &device.DeviceID, &device.CreatedAt, &device.UpdatedAt, &device.IsShared, &device.OwnerUsername,
 		); err != nil {
 			return nil, err
 		}

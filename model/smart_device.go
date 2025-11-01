@@ -17,6 +17,7 @@ type SmartDevice struct {
 	IsShared          bool      `json:"is_shared"`
 	SSID              *string   `json:"ssid,omitempty"`
 	CommunicationMode string    `json:"communication_mode"`
+	OwnerUsername     string    `json:"owner_username"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }
