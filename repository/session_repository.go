@@ -287,7 +287,7 @@ func (sr *SessionRepository) Register(user *model.User) (*model.Session, error) 
 			$2::text,         -- username
 			$3::text,         -- name
 			$4::text,         -- email
-			crypt($5::text, gen_salt('bf')),
+			$5::text,         -- password
 			1,                -- plan_id default (ajusta se quiser dinâmico)
 			'A',              -- status ativo
 			current_timestamp,
