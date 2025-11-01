@@ -64,7 +64,6 @@ func (sr *SessionRepository) ValidateSession(token string) (*model.Session, erro
 }
 
 func (sr *SessionRepository) Login(login *model.Login) (*model.Session, error) {
-	// Buscar usuário e validar senha em uma única query
 	row := sr.db.QueryRow(`
 		select u.id
 		      ,u.username
@@ -269,6 +268,7 @@ func (sr *SessionRepository) getSubscriptionPlan(planID int64) (*model.Subscript
 
 func (sr *SessionRepository) Register(user *model.User) (*model.Session, error) {
 	var userID uint64
+
 	err := sr.db.QueryRow(`
 		INSERT INTO barrel.users (
 			id,
@@ -283,10 +283,78 @@ func (sr *SessionRepository) Register(user *model.User) (*model.Session, error) 
 			updated_at
 		) VALUES (
 			nextval('barrel.seq_users'),
-			$1, $2, $3, $4, crypt($5, gen_salt('bf')), 1, 'A', current_timestamp, current_timestamp
+			$1::text,         -- type
+			$2::text,         -- username
+			$3::text,         -- name
+			$4::text,         -- email
+			crypt($5::text, gen_salt('bf')),
+			1,                -- plan_id default (ajusta se quiser dinâmico)
+			'A',              -- status ativo
+			current_timestamp,
+			current_timestamp
 		)
 		RETURNING id
 	`, user.Type, user.Username, user.Name, user.Email, user.Password).Scan(&userID)
+
+	if err != nil {
+		print(err.Error())
+		return nil, err
+	}
+
+	var (
+		username        string
+		name            string
+		code            string
+		userType        string
+		email           string
+		biometricLogin  bool
+		biometricEdit   bool
+		biometricRemove bool
+		planID          sql.NullInt64
+		userCreatedAt   time.Time
+		userUpdatedAt   time.Time
+	)
+
+	row := sr.db.QueryRow(`
+		select u.username,
+		       u.name,
+		       u.code,
+		       u.type,
+		       u.email,
+			   u.biometric_login,
+			   u.biometric_edit,
+			   u.biometric_remove,
+		       u.plan_id,
+		       u.created_at,
+		       u.updated_at
+		  from barrel.users u
+		 where u.id = $1::bigint
+	`, userID)
+
+	err = row.Scan(
+		&username,
+		&name,
+		&code,
+		&userType,
+		&email,
+		&biometricLogin,
+		&biometricEdit,
+		&biometricRemove,
+		&planID,
+		&userCreatedAt,
+		&userUpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = sr.db.Exec(`
+		update barrel.sessions 
+		   set status = 'I',
+		       updated_at = current_timestamp
+		 where user_id = $1::bigint 
+		   and status = 'A'
+	`, userID)
 
 	if err != nil {
 		return nil, err
@@ -298,21 +366,33 @@ func (sr *SessionRepository) Register(user *model.User) (*model.Session, error) 
 	}
 
 	now := time.Now()
+
 	session := &model.Session{
-		UserID:    userID,
-		Username:  user.Username,
-		Name:      user.Name,
-		Email:     user.Email,
-		Token:     tokenString,
-		CreatedAt: now,
-		UpdatedAt: now,
-		Status:    "A",
-		ExpiresAt: now.Add(time.Hour * 24),
+		UserID:          userID,
+		Username:        username,
+		Name:            name,
+		Code:            code,
+		Email:           email,
+		BiometricLogin:  biometricLogin,
+		BiometricEdit:   biometricEdit,
+		BiometricRemove: biometricRemove,
+		Token:           tokenString,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		Status:          "A",
+		ExpiresAt:       now.Add(time.Hour * 24),
 	}
 
-	subscriptionPlan, err := sr.getSubscriptionPlan(1)
-	if err == nil {
-		session.SubscriptionPlan = subscriptionPlan
+	if planID.Valid {
+		subscriptionPlan, err := sr.getSubscriptionPlan(planID.Int64)
+		if err == nil {
+			session.SubscriptionPlan = subscriptionPlan
+		}
+	} else {
+		subscriptionPlan, err := sr.getSubscriptionPlan(1)
+		if err == nil {
+			session.SubscriptionPlan = subscriptionPlan
+		}
 	}
 
 	err = sr.db.QueryRow(`

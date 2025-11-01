@@ -75,14 +75,9 @@ func (sc *SessionController) Register(w http.ResponseWriter, r *http.Request) {
 
 	session, err := sc.sessionRepo.Register(&user)
 
-	var userID uint64
-	if session != nil {
-		userID = session.UserID
-	}
-
 	response := model.Response{
 		Message: "User created successfully",
-		Data:    map[string]uint64{"id": userID},
+		Data:    session,
 		Code:    0,
 		Status:  http.StatusCreated,
 	}
