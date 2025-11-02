@@ -67,11 +67,25 @@ func (r *DeviceShareRepository) GetByID(id uint64) (*model.DeviceShare, error) {
 
 func (r *DeviceShareRepository) GetByUser(userID uint64) ([]model.DeviceShare, error) {
 	rows, err := r.db.Query(`
-		select ds.id, ds.owner_id, u.name as owner_name, ds.shared_with_id, ds.device_id, ds.group_id, ds.status,
-			   ds.accepted_at, ds.revoked_at, ds.created_at, ds.updated_at
+		select ds.id
+		      ,ds.owner_id
+			  ,u.name as owner_name
+			  ,ds.shared_with_id
+			  ,su.name as shared_with_name
+			  ,ds.device_id
+			  ,ds.group_id
+			  ,coalesce((select d.name from barrel.smart_devices d where d.id = ds.device_id), (select g.name from barrel.groups g where g.id = ds.group_id)) as shared_item_name
+			  ,case when ds.device_id is not null then 'device' when ds.group_id is not null then 'group' else 'unknown' end as type
+			  ,ds.status
+			  ,ds.accepted_at
+			  ,ds.revoked_at
+			  ,ds.created_at
+			  ,ds.updated_at
 		  from barrel.device_shares ds
 		      ,barrel.users u
+			  ,barrel.users su
 		 where u.id = ds.owner_id
+		   and su.id = ds.shared_with_id
 		   and (ds.owner_id = $1 or ds.shared_with_id = $1) and ds.deleted_at is null
 	`, userID)
 	if err != nil {
@@ -82,7 +96,7 @@ func (r *DeviceShareRepository) GetByUser(userID uint64) ([]model.DeviceShare, e
 	var list []model.DeviceShare
 	for rows.Next() {
 		var ds model.DeviceShare
-		if err := rows.Scan(&ds.ID, &ds.OwnerID, &ds.OwnerName, &ds.SharedWithID, &ds.DeviceID, &ds.GroupID,
+		if err := rows.Scan(&ds.ID, &ds.OwnerID, &ds.OwnerName, &ds.SharedWithID, &ds.SharedWithName, &ds.DeviceID, &ds.GroupID, &ds.SharedItemName, &ds.Type,
 			&ds.Status, &ds.AcceptedAt, &ds.RevokedAt, &ds.CreatedAt, &ds.UpdatedAt); err != nil {
 			return nil, err
 		}
