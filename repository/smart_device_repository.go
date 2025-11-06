@@ -4,6 +4,8 @@ import (
 	"barrel-api/model"
 	"database/sql"
 	"errors"
+
+	"github.com/lib/pq"
 )
 
 type SmartDeviceRepository struct {
@@ -17,11 +19,21 @@ func NewSmartDeviceRepository(db *sql.DB) *SmartDeviceRepository {
 }
 
 func (sr *SmartDeviceRepository) CreateSmartDevice(device *model.SmartDevice) (uint64, error) {
-	var id uint64
+	tx, err := sr.db.Begin()
+	if err != nil {
+		return 0, err
+	}
 
-	err := sr.db.QueryRow(`
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var id uint64
+	err = tx.QueryRow(`
 		INSERT INTO barrel.smart_devices (
-			user_id, group_id, name, type, ip, iv_key, state, 
+			user_id, group_id, name, type, ip, iv_key, state,
 			is_favorite, ssid, communication_mode, icon, device_id
 		)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
@@ -33,6 +45,30 @@ func (sr *SmartDeviceRepository) CreateSmartDevice(device *model.SmartDevice) (u
 	).Scan(&id)
 
 	if err != nil {
+		return 0, err
+	}
+
+	if device.Type == "trigger" && len(device.Actions) > 0 {
+		stmt, err := tx.Prepare(`
+			INSERT INTO barrel.smart_device_actions (
+				trigger_device_id, trigger_event, target_device_id, action_type
+			)
+			VALUES ($1, $2, $3, $4)
+		`)
+		if err != nil {
+			return 0, err
+		}
+		defer stmt.Close()
+
+		for _, action := range device.Actions {
+			_, err = stmt.Exec(id, action.TriggerEvent, action.TargetDeviceID, action.ActionType)
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
 		return 0, err
 	}
 
@@ -73,6 +109,46 @@ func (sr *SmartDeviceRepository) GetSmartDeviceByID(id uint64) (*model.SmartDevi
 	if err == sql.ErrNoRows {
 		return nil, ErrSmartDeviceNotFound
 	}
+
+	//Get actions
+	actionRows, err := sr.db.Query(`
+		select 
+			a.id,
+			a.trigger_device_id,
+			a.trigger_event,
+			a.target_device_id,
+			t.name as target_device_name,
+			t.ip as target_device_ip,
+			concat('users/', u.username, '/', t.device_id, '/command') as target_device_queue,
+			a.action_type,
+			a.created_at,
+			a.updated_at
+		from barrel.smart_device_actions a
+		join barrel.smart_devices t on t.id = a.target_device_id
+		join barrel.users u on u.id = t.user_id
+		where a.trigger_device_id = $1
+		order by a.id;
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer actionRows.Close()
+
+	actions := []model.SmartDeviceAction{}
+
+	for actionRows.Next() {
+		var act model.SmartDeviceAction
+		if err := actionRows.Scan(
+			&act.ID, &act.TriggerDeviceID, &act.TriggerEvent,
+			&act.TargetDeviceID, &act.TargetDeviceName, &act.TargetDeviceIP, &act.TargetDeviceQueue,
+			&act.ActionType, &act.CreatedAt, &act.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		actions = append(actions, act)
+	}
+
+	device.Actions = actions
 
 	return device, err
 }
@@ -138,9 +214,10 @@ func (sr *SmartDeviceRepository) GetSmartDevicesByUser(userID uint64) ([]model.S
 	defer rows.Close()
 
 	devices := []model.SmartDevice{}
+	deviceIDs := []uint64{}
+
 	for rows.Next() {
 		var device model.SmartDevice
-
 		if err := rows.Scan(
 			&device.ID, &device.UserID, &device.GroupID, &device.Name, &device.Type, &device.IP,
 			&device.IVKey, &device.State, &device.IsFavorite, &device.SSID, &device.CommunicationMode,
@@ -149,28 +226,89 @@ func (sr *SmartDeviceRepository) GetSmartDevicesByUser(userID uint64) ([]model.S
 			return nil, err
 		}
 
+		deviceIDs = append(deviceIDs, device.ID)
 		devices = append(devices, device)
+	}
+
+	if len(devices) == 0 {
+		return devices, nil
+	}
+
+	actionQuery := `
+		select 
+			a.id,
+			a.trigger_device_id,
+			a.trigger_event,
+			a.target_device_id,
+			t.name as target_device_name,
+			t.ip as target_device_ip,
+			concat('users/', u.username, '/', t.device_id, '/command') as target_device_queue,
+			a.action_type,
+			a.created_at,
+			a.updated_at
+		from barrel.smart_device_actions a
+		join barrel.smart_devices t on t.id = a.target_device_id
+		join barrel.users u on u.id = t.user_id
+		where a.trigger_device_id = any($1)
+		order by a.trigger_device_id, a.id;
+	`
+
+	actionRows, err := sr.db.Query(actionQuery, pq.Array(deviceIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer actionRows.Close()
+
+	actionMap := make(map[uint64][]model.SmartDeviceAction)
+
+	for actionRows.Next() {
+		var act model.SmartDeviceAction
+		if err := actionRows.Scan(
+			&act.ID, &act.TriggerDeviceID, &act.TriggerEvent,
+			&act.TargetDeviceID, &act.TargetDeviceName, &act.TargetDeviceIP, &act.TargetDeviceQueue,
+			&act.ActionType, &act.CreatedAt, &act.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		actionMap[act.TriggerDeviceID] = append(actionMap[act.TriggerDeviceID], act)
+	}
+
+	for i, d := range devices {
+		if acts, ok := actionMap[d.ID]; ok {
+			devices[i].Actions = acts
+		}
 	}
 
 	return devices, nil
 }
 
 func (sr *SmartDeviceRepository) UpdateSmartDevice(device *model.SmartDevice) error {
-	res, err := sr.db.Exec(`
-		update barrel.smart_devices
-		   set group_id            = $1
-		      ,name                 = $2
-		      ,type                 = $3
-		      ,ip                   = $4
-		      ,iv_key                = $5
-		      ,state                 = $6
-		      ,is_favorite             = $7
-		      ,ssid                    = $8
-		      ,communication_mode      = $9
-		      ,icon                     = $10
-		      ,updated_at               = now()
-		 where id                     = $11
-		   and deleted_at is null
+	tx, err := sr.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	res, err := tx.Exec(`
+		UPDATE barrel.smart_devices
+		   SET group_id            = $1,
+		       name                = $2,
+		       type                = $3,
+		       ip                  = $4,
+		       iv_key              = $5,
+		       state               = $6,
+		       is_favorite         = $7,
+		       ssid                = $8,
+		       communication_mode  = $9,
+		       icon                = $10,
+		       updated_at          = now()
+		 WHERE id                  = $11
+		   AND deleted_at IS NULL
 	`,
 		device.GroupID, device.Name, device.Type, device.IP, device.IVKey, device.State,
 		device.IsFavorite, device.SSID, device.CommunicationMode, device.Icon, device.ID,
@@ -178,9 +316,52 @@ func (sr *SmartDeviceRepository) UpdateSmartDevice(device *model.SmartDevice) er
 	if err != nil {
 		return err
 	}
+
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
+		tx.Rollback()
 		return ErrSmartDeviceNotFound
+	}
+
+	if device.Type == "trigger" {
+		_, err = tx.Exec(`
+			DELETE FROM barrel.smart_device_actions
+			 WHERE trigger_device_id = $1
+		`, device.ID)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		if len(device.Actions) > 0 {
+			stmt, err := tx.Prepare(`
+				INSERT INTO barrel.smart_device_actions (
+					trigger_device_id, trigger_event, target_device_id, action_type
+				)
+				VALUES ($1, $2, $3, $4)
+			`)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+			defer stmt.Close()
+
+			for _, act := range device.Actions {
+				_, err = stmt.Exec(device.ID, act.TriggerEvent, act.TargetDeviceID, act.ActionType)
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+	}
+
+	if device.Type != "trigger" {
+		_, _ = tx.Exec(`DELETE FROM barrel.smart_device_actions WHERE trigger_device_id = $1`, device.ID)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 
 	return nil
