@@ -9,7 +9,7 @@ create table if not exists barrel.smart_device_actions
     on delete cascade,
 
   trigger_event     varchar(20) not null
-    check (trigger_event in ('click','double','triple','long')),
+    check (trigger_event in ('single_click','double_click','triple_click','long_click')),
 
   target_device_id  bigint not null
     references barrel.smart_devices(id)
@@ -24,7 +24,7 @@ create table if not exists barrel.smart_device_actions
 
 comment on table barrel.smart_device_actions is 'Mapeia ações executadas por um dispositivo do tipo Trigger sobre outros dispositivos.';
 comment on column barrel.smart_device_actions.trigger_device_id is 'Dispositivo do tipo Trigger que dispara a ação.';
-comment on column barrel.smart_device_actions.trigger_event is 'Evento que dispara a ação (click, double, triple, long).';
+comment on column barrel.smart_device_actions.trigger_event is 'Evento que dispara a ação (single_click, double_click, triple_click, long_click).';
 comment on column barrel.smart_device_actions.target_device_id is 'Dispositivo alvo que receberá a ação.';
 comment on column barrel.smart_device_actions.action_type is 'Tipo de ação executada no dispositivo alvo (on/off/toggle/pulse/release).';
 
