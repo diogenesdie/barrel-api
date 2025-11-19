@@ -18,7 +18,7 @@ create table if not exists barrel.smart_devices_share
   updated_at       timestamp with time zone not null default current_timestamp,
   deleted_at       timestamp with time zone,
 
-  constraint uq_sds_device_user unique (device_id, user_id)
+  constraint uq_sds_device_user unique (device_share_id, device_id, user_id)
 );
 
 comment on table barrel.smart_devices_share is 'Customizações de dispositivos compartilhados pelo usuário que recebeu';

@@ -155,14 +155,11 @@ func (r *DeviceShareRepository) UpdateStatus(id uint64, status string) error {
 		return err
 	}
 	// Se não existir, vamos seguir com NULL (o campo permite null e tem ON DELETE SET NULL)
-
-	// Prepara INSERT com ON CONFLICT (device_id, user_id) DO NOTHING para não sobrescrever prefs
 	stmt, err := tx.Prepare(`
 		insert into barrel.smart_devices_share
 			(device_share_id, device_id, user_id, group_id, is_favorite)
 		values
 			($1, $2, $3, $4, false)
-		on conflict (device_id, user_id) do nothing
 	`)
 	if err != nil {
 		return err
