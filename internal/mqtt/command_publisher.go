@@ -27,7 +27,7 @@ func NewCommandPublisher(brokerURL, adminUser, adminPass string) *CommandPublish
 // PublishDeviceCommand publica cmd em texto puro no tópico
 // users/{ownerUsername}/{deviceID}/command.
 // deviceID é o identificador de firmware (SmartDevice.DeviceID), não o ID numérico do banco.
-func (p *CommandPublisher) PublishDeviceCommand(ownerUsername, deviceID, ivKey, cmd string) error {
+func (p *CommandPublisher) PublishDeviceCommand(ownerUsername, deviceID, cmd string) error {
 	topic := fmt.Sprintf("users/%s/%s/command", ownerUsername, deviceID)
 
 	opts := pahomqtt.NewClientOptions().

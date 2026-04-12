@@ -293,12 +293,7 @@ func (dc *SmartDeviceController) CommandHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if device.IVKey == nil || *device.IVKey == "" {
-		writeResponse(w, http.StatusUnprocessableEntity, "Dispositivo sem chave de criptografia", nil)
-		return
-	}
-
-	if err := dc.cmdPub.PublishDeviceCommand(device.OwnerUsername, device.DeviceID, *device.IVKey, body.Command); err != nil {
+	if err := dc.cmdPub.PublishDeviceCommand(device.OwnerUsername, device.DeviceID, body.Command); err != nil {
 		writeResponse(w, http.StatusInternalServerError, "Falha ao enviar comando: "+err.Error(), nil)
 		return
 	}
