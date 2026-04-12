@@ -197,11 +197,12 @@ func (sr *SessionRepository) Logout(token string) error {
 
 func (sr *SessionRepository) LogoutAllSessions(userID uint64) error {
 	_, err := sr.db.Exec(`
-		update barrel.sessions 
+		update barrel.sessions
 		   set status = 'I',
 		       updated_at = current_timestamp
-		 where user_id = $1::bigint 
+		 where user_id = $1::bigint
 		   and status = 'A'
+		   and expires_at < now() + interval '7 days'
 	`, userID)
 
 	return err
