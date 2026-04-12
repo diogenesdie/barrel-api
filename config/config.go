@@ -18,9 +18,11 @@ type Config struct {
 	ServerAddress string
 	Token         string
 	JWTSecret     string
-	MQTTPassword  string
-	MQTTBrokerURL string
-	MQTTAdminUser string
+	MQTTPassword       string
+	MQTTBrokerURL      string
+	MQTTAdminUser      string
+	MQTTPublisherUser  string
+	MQTTPublisherPass  string
 }
 
 func getEnv(key, defaultValue string) string {
@@ -49,8 +51,10 @@ func LoadConfig() *Config {
 		ServerAddress: getEnv("SERVER_ADDRESS", ":3000"),
 		Token:         getEnv("TOKEN", ""),
 		JWTSecret:     getEnv("JWT_SECRET", "diogepepe_30_04_2024"),
-		MQTTPassword:  getEnv("MQTT_ADMIN_PASS", "adminpass"),
-		MQTTBrokerURL: getEnv("MQTT_BROKER_URL", "tcp://dioge.com.br:1883"),
-		MQTTAdminUser: getEnv("MQTT_ADMIN_USER", "admin"),
+		MQTTPassword:      getEnv("MQTT_ADMIN_PASS", "adminpass"),
+		MQTTBrokerURL:     getEnv("MQTT_BROKER_URL", "tcp://dioge.com.br:1883"),
+		MQTTAdminUser:     getEnv("MQTT_ADMIN_USER", "admin"),
+		MQTTPublisherUser: getEnv("MQTT_PUBLISHER_USER", "barrel-api-publisher"),
+		MQTTPublisherPass: getEnv("MQTT_PUBLISHER_PASS", ""),
 	}
 }

@@ -61,7 +61,7 @@ func NewApp(cfg *config.Config) *App {
 	deviceShareRepo := repository.NewDeviceShareRepository(core.GetDB())
 	smartDeviceShareRepo := repository.NewSmartDeviceShareRepository(core.GetDB())
 	buttonRepo := repository.NewDeviceButtonRepository(core.GetDB())
-	cmdPub := mqtt.NewCommandPublisher(cfg.MQTTBrokerURL, cfg.MQTTAdminUser, cfg.MQTTPassword)
+	cmdPub := mqtt.NewCommandPublisher(cfg.MQTTBrokerURL, cfg.MQTTPublisherUser, cfg.MQTTPublisherPass)
 	smartDeviceController := controller.NewSmartDeviceController(smartDeviceRepo, groupRepo, deviceShareRepo, smartDeviceShareRepo, buttonRepo, cmdPub)
 	smartDeviceHandler := handler.NewSmartDeviceHandler(smartDeviceController)
 	smartDeviceHandler.RegisterRoutes(v1)
