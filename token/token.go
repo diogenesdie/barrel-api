@@ -10,12 +10,16 @@ import (
 )
 
 func GenerateToken(userID uint64) (string, error) {
+	return GenerateTokenWithDuration(userID, time.Hour*24)
+}
+
+func GenerateTokenWithDuration(userID uint64, duration time.Duration) (string, error) {
 	cfg := config.LoadConfig()
 	var secret = []byte(cfg.JWTSecret)
 
 	claims := jwt.MapClaims{}
 	claims["user_id"] = userID
-	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+	claims["exp"] = time.Now().Add(duration).Unix()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 

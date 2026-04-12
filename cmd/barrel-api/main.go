@@ -39,7 +39,7 @@ func NewApp(cfg *config.Config) *App {
 	groupHandler.RegisterRoutes(v1)
 
 	userRepo := repository.NewUserRepository(core.GetDB())
-	prov := mqtt.NewMosqDynSec("tcp://dioge.com.br:1883", "admin", cfg.MQTTPassword)
+	prov := mqtt.NewMosqDynSec(cfg.MQTTBrokerURL, cfg.MQTTAdminUser, cfg.MQTTPassword)
 	userController := controller.NewUserController(userRepo, groupRepo, prov)
 	userHandler := handler.NewUserHandler(userController)
 	userHandler.RegisterRoutes(authRouter)
@@ -52,10 +52,17 @@ func NewApp(cfg *config.Config) *App {
 	sessionHandler := handler.NewSessionHandler(sessionController)
 	sessionHandler.RegisterRoutes(authRouter)
 
+	oauthRepo := repository.NewOAuthRepository(core.GetDB())
+	oauthController := controller.NewOAuthController(oauthRepo, sessionRepo, core.GetDB())
+	oauthHandler := handler.NewOAuthHandler(oauthController)
+	oauthHandler.RegisterRoutes(authRouter)
+
 	smartDeviceRepo := repository.NewSmartDeviceRepository(core.GetDB())
 	deviceShareRepo := repository.NewDeviceShareRepository(core.GetDB())
 	smartDeviceShareRepo := repository.NewSmartDeviceShareRepository(core.GetDB())
-	smartDeviceController := controller.NewSmartDeviceController(smartDeviceRepo, groupRepo, deviceShareRepo, smartDeviceShareRepo)
+	buttonRepo := repository.NewDeviceButtonRepository(core.GetDB())
+	cmdPub := mqtt.NewCommandPublisher(cfg.MQTTBrokerURL, cfg.MQTTAdminUser, cfg.MQTTPassword)
+	smartDeviceController := controller.NewSmartDeviceController(smartDeviceRepo, groupRepo, deviceShareRepo, smartDeviceShareRepo, buttonRepo, cmdPub)
 	smartDeviceHandler := handler.NewSmartDeviceHandler(smartDeviceController)
 	smartDeviceHandler.RegisterRoutes(v1)
 

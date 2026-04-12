@@ -2,24 +2,45 @@ package controller
 
 import (
 	"barrel-api/auth"
+	"barrel-api/internal/mqtt"
 	"barrel-api/model"
 	"barrel-api/repository"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/gorilla/mux"
 )
+
+// commandAllowList valida os comandos aceitos pelo endpoint /command.
+var commandAllowList = regexp.MustCompile(`^(on|off|brightness:\d{1,3}|send:[A-Z0-9_]+)$`)
 
 type SmartDeviceController struct {
 	deviceRepo           *repository.SmartDeviceRepository
 	groupRepo            *repository.GroupRepository
 	deviceShareRepo      *repository.DeviceShareRepository
 	smartDeviceShareRepo *repository.SmartDeviceShareRepository
+	buttonRepo           *repository.DeviceButtonRepository
+	cmdPub               *mqtt.CommandPublisher
 }
 
-func NewSmartDeviceController(deviceRepo *repository.SmartDeviceRepository, groupRepo *repository.GroupRepository, deviceShareRepo *repository.DeviceShareRepository, smartDeviceShareRepo *repository.SmartDeviceShareRepository) *SmartDeviceController {
-	return &SmartDeviceController{deviceRepo: deviceRepo, groupRepo: groupRepo, deviceShareRepo: deviceShareRepo, smartDeviceShareRepo: smartDeviceShareRepo}
+func NewSmartDeviceController(
+	deviceRepo *repository.SmartDeviceRepository,
+	groupRepo *repository.GroupRepository,
+	deviceShareRepo *repository.DeviceShareRepository,
+	smartDeviceShareRepo *repository.SmartDeviceShareRepository,
+	buttonRepo *repository.DeviceButtonRepository,
+	cmdPub *mqtt.CommandPublisher,
+) *SmartDeviceController {
+	return &SmartDeviceController{
+		deviceRepo:           deviceRepo,
+		groupRepo:            groupRepo,
+		deviceShareRepo:      deviceShareRepo,
+		smartDeviceShareRepo: smartDeviceShareRepo,
+		buttonRepo:           buttonRepo,
+		cmdPub:               cmdPub,
+	}
 }
 
 func (dc *SmartDeviceController) CreateSmartDeviceHandler(w http.ResponseWriter, r *http.Request) {
@@ -225,4 +246,164 @@ func (dc *SmartDeviceController) DeleteSmartDeviceHandler(w http.ResponseWriter,
 	}
 
 	writeResponse(w, http.StatusOK, "Device deleted successfully", nil)
+}
+
+// CommandHandler envia um comando para o dispositivo via MQTT.
+// POST /api/v1/devices/{id}/command
+// Body: {"command": "on"|"off"|"brightness:50"|"send:BTN_1"}
+func (dc *SmartDeviceController) CommandHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetParsedUserId(r.Header.Get("user_id"))
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Invalid user ID", nil)
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	deviceID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Invalid device ID", nil)
+		return
+	}
+
+	device, err := dc.deviceRepo.GetSmartDeviceByID(deviceID)
+	if err != nil {
+		if err == repository.ErrSmartDeviceNotFound {
+			writeResponse(w, http.StatusNotFound, "Device not found", nil)
+			return
+		}
+		writeResponse(w, http.StatusInternalServerError, "Failed to get device", nil)
+		return
+	}
+
+	if device.UserID != userID {
+		writeResponse(w, http.StatusForbidden, "Forbidden", nil)
+		return
+	}
+
+	var body struct {
+		Command string `json:"command"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Command == "" {
+		writeResponse(w, http.StatusBadRequest, "Campo 'command' obrigatório", nil)
+		return
+	}
+
+	if !commandAllowList.MatchString(body.Command) {
+		writeResponse(w, http.StatusUnprocessableEntity, "Comando inválido", nil)
+		return
+	}
+
+	if device.IVKey == nil || *device.IVKey == "" {
+		writeResponse(w, http.StatusUnprocessableEntity, "Dispositivo sem chave de criptografia", nil)
+		return
+	}
+
+	if err := dc.cmdPub.PublishDeviceCommand(device.OwnerUsername, device.DeviceID, *device.IVKey, body.Command); err != nil {
+		writeResponse(w, http.StatusInternalServerError, "Falha ao enviar comando: "+err.Error(), nil)
+		return
+	}
+
+	// Atualiza estado no banco para switch/dimmer
+	newState := ""
+	switch body.Command {
+	case "on":
+		newState = "on"
+	case "off":
+		newState = "off"
+	default:
+		if len(body.Command) > 11 && body.Command[:11] == "brightness:" {
+			newState = "on"
+		}
+	}
+	if newState != "" {
+		_ = dc.deviceRepo.UpdateSmartDeviceState(deviceID, newState)
+	}
+
+	writeResponse(w, http.StatusOK, "Comando enviado", map[string]string{"command": body.Command})
+}
+
+// GetButtonsHandler retorna os botões IR/RF de um dispositivo.
+// GET /api/v1/devices/{id}/buttons
+func (dc *SmartDeviceController) GetButtonsHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetParsedUserId(r.Header.Get("user_id"))
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Invalid user ID", nil)
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	deviceID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Invalid device ID", nil)
+		return
+	}
+
+	device, err := dc.deviceRepo.GetSmartDeviceByID(deviceID)
+	if err != nil {
+		if err == repository.ErrSmartDeviceNotFound {
+			writeResponse(w, http.StatusNotFound, "Device not found", nil)
+			return
+		}
+		writeResponse(w, http.StatusInternalServerError, "Failed to get device", nil)
+		return
+	}
+
+	if device.UserID != userID {
+		writeResponse(w, http.StatusForbidden, "Forbidden", nil)
+		return
+	}
+
+	buttons, err := dc.buttonRepo.GetButtonsByDeviceID(deviceID)
+	if err != nil {
+		writeResponse(w, http.StatusInternalServerError, "Failed to get buttons", nil)
+		return
+	}
+
+	writeResponse(w, http.StatusOK, "OK", buttons)
+}
+
+// UpsertButtonsHandler sincroniza os botões de um dispositivo IR/RF.
+// POST /api/v1/devices/{id}/buttons
+// Body: {"buttons": [...]}
+func (dc *SmartDeviceController) UpsertButtonsHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetParsedUserId(r.Header.Get("user_id"))
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Invalid user ID", nil)
+		return
+	}
+
+	id := mux.Vars(r)["id"]
+	deviceID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Invalid device ID", nil)
+		return
+	}
+
+	device, err := dc.deviceRepo.GetSmartDeviceByID(deviceID)
+	if err != nil {
+		if err == repository.ErrSmartDeviceNotFound {
+			writeResponse(w, http.StatusNotFound, "Device not found", nil)
+			return
+		}
+		writeResponse(w, http.StatusInternalServerError, "Failed to get device", nil)
+		return
+	}
+
+	if device.UserID != userID {
+		writeResponse(w, http.StatusForbidden, "Forbidden", nil)
+		return
+	}
+
+	var req model.UpsertDeviceButtonsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeResponse(w, http.StatusBadRequest, "Failed to decode body", nil)
+		return
+	}
+
+	if err := dc.buttonRepo.UpsertButtons(deviceID, req.Buttons); err != nil {
+		writeResponse(w, http.StatusInternalServerError, "Failed to upsert buttons", nil)
+		return
+	}
+
+	writeResponse(w, http.StatusOK, "Buttons synced", nil)
 }

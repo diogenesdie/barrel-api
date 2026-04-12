@@ -367,6 +367,26 @@ func (sr *SmartDeviceRepository) UpdateSmartDevice(device *model.SmartDevice) er
 	return nil
 }
 
+// UpdateSmartDeviceState atualiza apenas o campo state de um dispositivo.
+// Usado pelo CommandHandler após enviar o comando MQTT.
+func (sr *SmartDeviceRepository) UpdateSmartDeviceState(id uint64, state string) error {
+	res, err := sr.db.Exec(`
+		UPDATE barrel.smart_devices
+		   SET state      = $1,
+		       updated_at = now()
+		 WHERE id         = $2
+		   AND deleted_at IS NULL
+	`, state, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrSmartDeviceNotFound
+	}
+	return nil
+}
+
 func (sr *SmartDeviceRepository) DeleteSmartDevice(id string) error {
 	res, err := sr.db.Exec(`
 		update barrel.smart_devices

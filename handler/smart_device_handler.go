@@ -20,4 +20,7 @@ func (dh *SmartDeviceHandler) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/devices/{id}", dh.deviceController.GetSmartDeviceByIDHandler).Methods("GET")
 	r.HandleFunc("/devices/{id}", dh.deviceController.UpdateSmartDeviceHandler).Methods("PUT")
 	r.HandleFunc("/devices/{id}", dh.deviceController.DeleteSmartDeviceHandler).Methods("DELETE")
+	r.HandleFunc("/devices/{id}/command", dh.deviceController.CommandHandler).Methods("POST")
+	r.HandleFunc("/devices/{id}/buttons", dh.deviceController.GetButtonsHandler).Methods("GET")
+	r.HandleFunc("/devices/{id}/buttons", dh.deviceController.UpsertButtonsHandler).Methods("POST")
 }
