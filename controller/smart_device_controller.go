@@ -14,7 +14,7 @@ import (
 )
 
 // commandAllowList valida os comandos aceitos pelo endpoint /command.
-var commandAllowList = regexp.MustCompile(`^(on|off|pulse|brightness:\d{1,3}|send:[A-Z0-9_]+)$`)
+var commandAllowList = regexp.MustCompile(`^(on|off|pulse|release|brightness:\d{1,3}|send:[A-Z0-9_]+)$`)
 
 type SmartDeviceController struct {
 	deviceRepo           *repository.SmartDeviceRepository
