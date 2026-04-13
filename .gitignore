@@ -27,3 +27,5 @@ _testmain.go
 .env
 
 bin/
+
+.DS_Store
