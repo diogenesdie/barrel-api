@@ -76,6 +76,21 @@ func NewApp(cfg *config.Config) *App {
 	sceneHandler := handler.NewSceneHandler(sceneController)
 	sceneHandler.RegisterRoutes(v1)
 
+	routineRepo := repository.NewRoutineRepository(core.GetDB())
+	routineExecutor := core.NewRoutineExecutor(smartDeviceRepo, sceneRepo, sceneExecutor, cmdPub)
+	routineScheduler := core.NewRoutineScheduler(routineRepo, routineExecutor)
+	routineTriggerListener := core.NewRoutineTriggerListener(routineRepo, routineExecutor, cfg.MQTTBrokerURL, cfg.MQTTAdminUser, cfg.MQTTPassword)
+	routineController := controller.NewRoutineController(routineRepo, routineExecutor)
+	routineHandler := handler.NewRoutineHandler(routineController)
+	routineHandler.RegisterRoutes(v1)
+
+	if err := routineScheduler.Start(); err != nil {
+		log.Printf("WARNING: routine scheduler failed to start: %v", err)
+	}
+	if err := routineTriggerListener.Start(); err != nil {
+		log.Printf("WARNING: routine trigger listener failed to start: %v", err)
+	}
+
 	return app
 }
 
