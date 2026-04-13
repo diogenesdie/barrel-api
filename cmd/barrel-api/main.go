@@ -70,6 +70,12 @@ func NewApp(cfg *config.Config) *App {
 	deviceShareHandler := handler.NewDeviceShareHandler(deviceShareController)
 	deviceShareHandler.RegisterRoutes(v1)
 
+	sceneRepo := repository.NewSceneRepository(core.GetDB())
+	sceneExecutor := core.NewSceneExecutor(smartDeviceRepo, cmdPub)
+	sceneController := controller.NewSceneController(sceneRepo, sceneExecutor)
+	sceneHandler := handler.NewSceneHandler(sceneController)
+	sceneHandler.RegisterRoutes(v1)
+
 	return app
 }
 
